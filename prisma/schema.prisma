@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name      String
+  color     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rounds    Round[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  roundCategories RoundCategory[]
+  entries         Entry[]
+}
+
+model AppSettings {
+  id               String   @id @default("singleton")
+  roundLengthWeeks Int      @default(8)
+  weekStartsOn     Int      @default(0)
+  timezone         String   @default("America/New_York")
+  updatedAt        DateTime @updatedAt
+}
+
+model Round {
+  id          String   @id @default(cuid())
+  personId    String
+  startDate   DateTime
+  lengthWeeks Int
+  createdAt   DateTime @default(now())
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  roundCategories RoundCategory[]
+  entries         Entry[]
+  @@index([personId])
+}
+
+model RoundCategory {
+  id          String @id @default(cuid())
+  roundId     String
+  categoryId  String
+  sortOrder   Int
+  displayName String
+  round       Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  @@unique([roundId, categoryId])
+  @@index([roundId])
+}
+
+model Entry {
+  id         String   @id @default(cuid())
+  roundId    String
+  categoryId String
+  date       DateTime
+  status     String   @default("EMPTY")
+  updatedAt  DateTime @updatedAt
+
+  round      Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, categoryId, date])
+  @@index([roundId, date])
+}

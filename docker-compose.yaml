@@ -1,0 +1,12 @@
+services:
+  fitness-habit-tracker:
+    image: fitness-habit-tracker:latest
+    container_name: fitness-habit-tracker
+    restart: unless-stopped
+    ports:
+      - "3010:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "file:/app/data/dev.db"
+    volumes:
+      - ./data:/app/data

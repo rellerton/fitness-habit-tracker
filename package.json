@@ -1,24 +1,37 @@
 {
-  "name": "e2m-tracker",
+  "name": "fitness-habit-tracker",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.23",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "postcss": "^8.5.6",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.1.18",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+"scripts": {
+  "seed": "npx prisma db seed",
+  "build": "prisma generate && next build",
+  "dev": "next dev",
+  "lint": "eslint",
+  "db:init": "npx prisma migrate dev --name init && npm run seed",
+  "db:deploy": "prisma generate && prisma migrate deploy",
+  "start": "next start"
+},
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }

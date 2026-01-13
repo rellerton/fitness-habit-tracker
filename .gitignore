@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -28,10 +26,20 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
+# env files (commit template only)
 .env*
+!.env.example
+
+# sqlite/db files (local dev only)
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # vercel
 .vercel
@@ -39,3 +47,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma output (if you truly generate here)
+# If this is generated code, ignore it. If it's source-controlled, remove this ignore.
+#/app/generated/prisma
+
+# docker images / exports
+*.tar
+*.tar.gz
