@@ -1,5 +1,5 @@
 name: "Fitness Habit Tracker"
-version: "v1.0.2"
+version: "v1.0.3"
 slug: "fitness_habit_tracker"
 description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
 url: "https://github.com/rellerton/fitness-habit-tracker"
@@ -7,30 +7,32 @@ url: "https://github.com/rellerton/fitness-habit-tracker"
 arch:
   - amd64
 
-startup: services
+startup: application
 boot: auto
 
-# Pull prebuilt image (so HA does NOT try to build a Dockerfile in the add-on folder)
+# Pull the prebuilt Docker image from GHCR
 image: "ghcr.io/rellerton/fitness-habit-tracker"
 
+# Ingress: HA proxies the UI, no exposed ports
 ingress: true
 ingress_port: 3000
 panel_icon: mdi:checkbox-marked-circle-outline
 panel_title: "Habit Tracker"
 panel_admin: false
 
-# Persisted storage (HA mounts /data for the add-on)
+# Persistent storage (mounted by HA at /data)
 map:
   - type: data
     read_only: false
 
+# User-configurable options
 options:
   database_url: "file:/data/dev.db"
 
 schema:
   database_url: str
 
-# Pass env vars into the container
+# Inject options into container environment
 environment:
-  DATABASE_URL: "%database_url%"
+  DATABASE_URL: "${database_url}"
   NODE_ENV: "production"
