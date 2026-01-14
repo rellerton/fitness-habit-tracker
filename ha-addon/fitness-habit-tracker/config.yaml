@@ -1,5 +1,5 @@
 name: "Fitness Habit Tracker"
-version: "v1.0.4"
+version: "0.1.0-ha.2"
 slug: "fitness_habit_tracker"
 description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
 url: "https://github.com/rellerton/fitness-habit-tracker"
@@ -9,8 +9,6 @@ arch:
 
 startup: application
 boot: auto
-
-image: "ghcr.io/rellerton/fitness-habit-tracker"
 
 ingress: true
 ingress_port: 3000
@@ -22,14 +20,8 @@ map:
   - type: data
     read_only: false
 
-# Keep options if you want it visible in the UI, but DON'T try to inject it via env templating
 options:
   database_url: "file:/data/dev.db"
 
 schema:
   database_url: str
-
-environment:
-  NODE_ENV: "production"
-  # Hard-set this for now so Prisma always gets a valid URL
-  DATABASE_URL: "file:/data/dev.db"

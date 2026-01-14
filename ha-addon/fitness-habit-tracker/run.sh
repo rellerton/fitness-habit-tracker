@@ -1,32 +1,26 @@
-#!/usr/bin/env sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "==> Fitness Habit Tracker (HA add-on) starting"
-echo "==> NODE_ENV=${NODE_ENV:-}"
-echo "==> DATABASE_URL=${DATABASE_URL:-}"
+export NODE_ENV=production
 
-# DATABASE_URL must exist and must be file:
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "ERROR: DATABASE_URL is not set"
-  exit 1
+# Get DB URL from HA options.json (or fall back)
+DB_URL=""
+if [[ -f /data/options.json ]]; then
+  DB_URL="$(grep -oE '"database_url"\s*:\s*"[^"]+"' /data/options.json \
+    | sed -E 's/.*"database_url"\s*:\s*"([^"]+)".*/\1/' || true)"
 fi
 
-case "$DATABASE_URL" in
-  file:*)
-    ;;
-  *)
-    echo "ERROR: DATABASE_URL must start with file:"
-    exit 1
-    ;;
-esac
+if [[ -z "${DB_URL}" ]]; then
+  DB_URL="file:/data/dev.db"
+fi
 
-# Resolve DB path and directory
-DB_PATH="${DATABASE_URL#file:}"
-DB_DIR="$(dirname "$DB_PATH")"
+export DATABASE_URL="${DB_URL}"
 
-echo "==> Resolved DB file: $DB_PATH"
-echo "==> Ensuring DB dir exists: $DB_DIR"
-mkdir -p "$DB_DIR"
+echo "==> Fitness Habit Tracker (HA add-on) starting"
+echo "==> NODE_ENV=${NODE_ENV}"
+echo "==> DATABASE_URL=${DATABASE_URL}"
+
+mkdir -p /data
 
 echo "==> prisma generate"
 npx prisma generate
@@ -34,11 +28,8 @@ npx prisma generate
 echo "==> prisma migrate deploy"
 npx prisma migrate deploy
 
-# Optional seed (only if DB file does not exist yet)
-if [ ! -f "$DB_PATH" ]; then
-  echo "==> No DB found, seeding..."
-  npx prisma db seed || true
-fi
+echo "==> starting Next.js on :3001"
+PORT=3001 npm run start &
 
-echo "==> Starting Next.js"
-exec npm run start
+echo "==> starting nginx on :3000 (ingress)"
+nginx -g "daemon off;"
