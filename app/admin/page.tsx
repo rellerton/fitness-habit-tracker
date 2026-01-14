@@ -46,6 +46,9 @@ export default function AdminPage() {
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
   async function refresh() {
+      console.log("API test people:", apiUrl("/api/people"));
+      console.log("API test categories:", apiUrl("/api/categories"));
+
     const [p, c] = await Promise.all([
       fetch(apiUrl("/api/people")).then((r) => r.json()),
       fetch(apiUrl("/api/categories")).then((r) => r.json()),
