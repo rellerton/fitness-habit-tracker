@@ -3,40 +3,63 @@ set -eu
 
 echo "==> Fitness Habit Tracker: starting"
 echo "==> NODE_ENV=${NODE_ENV:-}"
-echo "==> DATABASE_URL=${DATABASE_URL:-}"
 
-# Default for backwards compatibility (Synology)
-: "${DATABASE_URL:=file:/app/data/dev.db}"
-export DATABASE_URL
+# If running as HA add-on, /data exists and is persistent.
+# If running on Synology, you mapped /app/data.
+if [ -d "/data" ]; then
+  DATA_DIR="/data"
+else
+  DATA_DIR="/app/data"
+fi
 
-# Derive the sqlite file path from DATABASE_URL (supports file:/path and file:./relative)
-db_url="$DATABASE_URL"
-db_path="${db_url#file:}"
+mkdir -p "$DATA_DIR"
 
-# If path is relative (no leading /), resolve relative to /app
-case "$db_path" in
-  /*) : ;;
-  *) db_path="/app/$db_path" ;;
+# Prefer env var if valid, otherwise pull from HA options.json if present, otherwise default.
+DB_URL="${DATABASE_URL:-}"
+
+# If HA passed a literal placeholder, treat it as "unset"
+case "${DB_URL}" in
+  ""|*"%database_url%"*|*"\${database_url}"*)
+    DB_URL=""
+    ;;
 esac
 
-db_dir="$(dirname "$db_path")"
-db_file="$db_path"
+if [ -z "$DB_URL" ] && [ -f /data/options.json ]; then
+  # Read database_url from options.json without jq
+  DB_URL="$(grep -oE '"database_url"\s*:\s*"[^"]+"' /data/options.json \
+    | sed -E 's/.*"database_url"\s*:\s*"([^"]+)".*/\1/' || true)"
+fi
 
-echo "==> Resolved DB file: $db_file"
-echo "==> Ensuring DB dir exists: $db_dir"
-mkdir -p "$db_dir"
+if [ -z "$DB_URL" ]; then
+  DB_URL="file:${DATA_DIR}/dev.db"
+fi
 
-# Prisma generate (kept because you're using npx in runtime image)
+# Validate Prisma format
+case "$DB_URL" in
+  file:*)
+    ;;
+  *)
+    echo "ERROR: DATABASE_URL must start with file:"
+    echo "Got: $DB_URL"
+    exit 1
+    ;;
+esac
+
+export DATABASE_URL="$DB_URL"
+export NODE_ENV="${NODE_ENV:-production}"
+
+echo "==> DATABASE_URL=${DATABASE_URL}"
+echo "==> DATA_DIR=${DATA_DIR}"
+
 echo "==> prisma generate"
 npx prisma generate
 
-# Apply migrations (safe repeatedly)
 echo "==> prisma migrate deploy"
 npx prisma migrate deploy
 
-# Seed only if DB file doesn't exist yet
-if [ ! -f "$db_file" ]; then
-  echo "==> No SQLite DB found at $db_file yet. Seeding..."
+DB_PATH="${DATABASE_URL#file:}"
+if [ ! -f "$DB_PATH" ]; then
+  echo "==> No SQLite DB found at $DB_PATH yet. Seeding..."
   npx prisma db seed || true
 fi
 
