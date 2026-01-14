@@ -1,15 +1,13 @@
-export function getIngressBasePath(): string {
-  if (typeof window === "undefined") return "";
+export function apiUrl(path: string) {
+  const p = path.startsWith("/") ? path : `/${path}`;
 
-  const p = window.location.pathname;
+  if (typeof window === "undefined") return p;
 
-  // HA ingress looks like: /api/hassio_ingress/<token>/...
-  const m = p.match(/^(\/api\/hassio_ingress\/[^/]+)/);
-  return m ? m[1] : "";
-}
+  // Home Assistant injects this globally
+  const ingress = (window as any).__INGRESS_PATH__;
+  if (typeof ingress === "string" && ingress.length > 0) {
+    return `${ingress}${p}`;
+  }
 
-export function apiUrl(path: string): string {
-  // path should start with "/api/..."
-  const base = getIngressBasePath();
-  return `${base}${path}`;
+  return p;
 }
