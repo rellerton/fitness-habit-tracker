@@ -1,4 +1,4 @@
-name: Build and publish Docker image
+name: Build and publish Docker images
 
 on:
   push:
@@ -29,11 +29,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # ---------- Plain Docker image (root Dockerfile) ----------
+      - name: Build and push (plain)
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ghcr.io/${{ github.repository }}:latest
+
+      # ---------- Home Assistant add-on image ----------
+      - name: Build and push (home-assistant add-on)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./ha-addon/fitness-habit-tracker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}-ha
+            ghcr.io/${{ github.repository }}:ha-latest

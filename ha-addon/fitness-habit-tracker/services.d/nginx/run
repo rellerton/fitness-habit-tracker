@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv sh
+set -eu
+echo "==> [nginx] starting"
+exec nginx -g "daemon off;"
