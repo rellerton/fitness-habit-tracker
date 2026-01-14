@@ -12,6 +12,22 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          # Plain Docker image (Synology)
+          - name: app
+            image: ghcr.io/${{ github.repository }}
+            dockerfile: Dockerfile
+            context: .
+
+          # Home Assistant ingress-friendly image
+          - name: ha
+            image: ghcr.io/${{ github.repository }}-ha
+            dockerfile: ha-addon/fitness-habit-tracker/Dockerfile
+            context: .
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,24 +45,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ---------- Plain Docker image (root Dockerfile) ----------
-      - name: Build and push (plain)
+      - name: Build and push (${{ matrix.name }})
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ghcr.io/${{ github.repository }}:latest
-
-      # ---------- Home Assistant add-on image ----------
-      - name: Build and push (home-assistant add-on)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./ha-addon/fitness-habit-tracker/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}-ha
-            ghcr.io/${{ github.repository }}:ha-latest
+            ${{ matrix.image }}:${{ github.ref_name }}
+            ${{ matrix.image }}:latest

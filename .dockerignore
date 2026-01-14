@@ -1,7 +1,10 @@
 node_modules
 .next
-data
 .git
+.gitignore
+README.md
+data
+**/*.db
+**/*.db-journal
+npm-debug.log*
 .DS_Store
-npm-debug.log
-ha-addon/**
