@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/rellerton/fitness-habit-tracker:v1.0.2
+ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # Add nginx + bash (node is already in your base image)

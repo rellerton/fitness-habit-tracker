@@ -10,47 +10,49 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  build_base:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        include:
-          # Plain Docker image (Synology)
-          - name: app
-            image: ghcr.io/${{ github.repository }}
-            dockerfile: Dockerfile
-            context: .
-
-          # Home Assistant ingress-friendly image
-          - name: ha
-            image: ghcr.io/${{ github.repository }}-ha
-            dockerfile: ha-addon/fitness-habit-tracker/Dockerfile
-            context: .
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push (${{ matrix.name }})
+      - name: Build and push base image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: .
+          file: Dockerfile
           push: true
           tags: |
-            ${{ matrix.image }}:${{ github.ref_name }}
-            ${{ matrix.image }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
+
+  build_ha:
+    runs-on: ubuntu-latest
+    needs: build_base
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push HA image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ha-addon/fitness-habit-tracker/Dockerfile
+          push: true
+          build-args: |
+            BUILD_FROM=ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          tags: |
+            ghcr.io/${{ github.repository }}-ha:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}-ha:latest
