@@ -240,9 +240,12 @@ export default function AdminPage() {
             Manage people, categories, and rounds.
           </p>
         </div>
-        <pre className="mt-4 whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-200">
-          {debug}
-        </pre>
+        <div style={{ background: "#fff", color: "#000", padding: 10, border: "2px solid red" }}>
+          <div>pathname: {typeof window === "undefined" ? "server" : window.location.pathname}</div>
+          <div>__INGRESS_PATH__: {typeof window === "undefined" ? "server" : String((window as any).__INGRESS_PATH__ ?? "undefined")}</div>
+          <div>api(/api/people): {typeof window === "undefined" ? "server" : apiUrl("/api/people")}</div>
+        </div>
+
 
         <div className="flex gap-2">
           <Link
