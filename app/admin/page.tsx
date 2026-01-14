@@ -45,10 +45,20 @@ export default function AdminPage() {
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
-  async function refresh() {
-      console.log("API test people:", apiUrl("/api/people"));
-      console.log("API test categories:", apiUrl("/api/categories"));
+  const [debug, setDebug] = useState<string>("");
 
+  useEffect(() => {
+    const ingress = (window as any).__INGRESS_PATH__;
+    setDebug([
+      `pathname: ${window.location.pathname}`,
+      `__INGRESS_PATH__: ${ingress ?? "undefined"}`,
+      `apiUrl(/api/people): ${apiUrl("/api/people")}`,
+      `apiUrl(/api/categories): ${apiUrl("/api/categories")}`,
+    ].join("\n"));
+  }, []);
+
+
+  async function refresh() {
     const [p, c] = await Promise.all([
       fetch(apiUrl("/api/people")).then((r) => r.json()),
       fetch(apiUrl("/api/categories")).then((r) => r.json()),
@@ -230,6 +240,9 @@ export default function AdminPage() {
             Manage people, categories, and rounds.
           </p>
         </div>
+        <pre className="mt-4 whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-200">
+          {debug}
+        </pre>
 
         <div className="flex gap-2">
           <Link
