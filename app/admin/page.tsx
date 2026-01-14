@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiUrl } from "@/lib/ingress";
+
 
 type Person = { id: string; name: string };
 type Category = { id: string; name: string; sortOrder: number };
@@ -66,7 +68,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      const res = await fetch("/api/people", {
+      const res = await fetch(apiUrl("/api/people"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -89,7 +91,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetch("/api/categories", {
+      const res = await fetch(apiUrl("/api/categories"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -109,7 +111,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      const res = await fetch("/api/categories/reorder", {
+      const res = await fetch(apiUrl("/api/categories/reorder"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
