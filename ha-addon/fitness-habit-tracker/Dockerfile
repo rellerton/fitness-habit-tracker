@@ -1,22 +1,12 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_FROM=ghcr.io/rellerton/fitness-habit-tracker:v1.0.2
 FROM ${BUILD_FROM}
 
-WORKDIR /app
+# Add nginx + bash (node is already in your base image)
+RUN apk add --no-cache nginx bash
 
-# Install runtime deps
-RUN apk add --no-cache nodejs npm nginx openssl bash
-
-# Copy app source into image
-COPY . /app
-
-# Install deps + build
-RUN npm ci
-RUN npx prisma generate
-RUN npm run build
-
-# Nginx config + run script
-COPY ha-addon/fitness-habit-tracker/nginx.conf /etc/nginx/http.d/default.conf
-COPY ha-addon/fitness-habit-tracker/run.sh /run.sh
+# Add ingress nginx config + HA run script
+COPY nginx.conf /etc/nginx/http.d/default.conf
+COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 EXPOSE 3000

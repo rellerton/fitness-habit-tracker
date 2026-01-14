@@ -3,13 +3,14 @@ set -euo pipefail
 
 export NODE_ENV=production
 
-# Get DB URL from HA options.json (or fall back)
+# Pull DB URL from HA options (preferred)
 DB_URL=""
 if [[ -f /data/options.json ]]; then
   DB_URL="$(grep -oE '"database_url"\s*:\s*"[^"]+"' /data/options.json \
     | sed -E 's/.*"database_url"\s*:\s*"([^"]+)".*/\1/' || true)"
 fi
 
+# Fallback
 if [[ -z "${DB_URL}" ]]; then
   DB_URL="file:/data/dev.db"
 fi
