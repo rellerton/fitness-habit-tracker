@@ -1,0 +1,28 @@
+name: "Fitness Habit Tracker"
+version: "0.1.0-ha.1"
+slug: "fitness_habit_tracker"
+description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
+url: "https://github.com/rellerton/fitness-habit-tracker"
+arch:
+  - amd64
+startup: application
+boot: auto
+
+# This is the magic: no extra port exposure; HA proxies it internally
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:checkbox-marked-circle-outline
+panel_title: "Habit Tracker"
+panel_admin: false
+
+# Persisted storage
+map:
+  - type: data
+    read_only: false
+    # default path inside container is /data (we want that)
+
+options:
+  database_url: "file:/data/dev.db"
+
+schema:
+  database_url: str
