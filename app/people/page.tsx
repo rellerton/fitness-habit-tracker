@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiUrl } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
 
@@ -10,7 +9,7 @@ export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([]);
 
   async function refresh() {
-    const p = await fetch(apiUrl("/api/people")).then((r) => r.json());
+    const p = await fetch("api/people").then((r) => r.json());
     setPeople(p);
   }
 

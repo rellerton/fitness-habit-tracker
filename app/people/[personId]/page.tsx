@@ -6,7 +6,6 @@ import Link from "next/link";
 import RoundWheel from "@/components/RoundWheel";
 import StatusLegend from "@/components/StatusLegend";
 import { useSearchParams } from "next/navigation";
-import { apiUrl } from "@/lib/ingress";
 
 
 type Person = { id: string; name: string };
@@ -202,7 +201,7 @@ export default function PersonPage() {
 
     setLoading(true);
 
-    const res = await fetch(apiUrl("/api/rounds/start"), {
+    const res = await fetch("api/rounds/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ personId, startDate: startDateInput }),
@@ -230,7 +229,7 @@ export default function PersonPage() {
   }, [personId]);
 
   async function cycle(roundId: string, categoryId: string, day: string) {
-    const res = await fetch(apiUrl("/api/entries"), {
+    const res = await fetch("api/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roundId, categoryId, date: day, mode: "cycle" }),

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiUrl } from "@/lib/ingress";
 
 
 type Person = { id: string; name: string };
@@ -47,8 +46,8 @@ export default function AdminPage() {
 
   async function refresh() {
     const [p, c] = await Promise.all([
-      fetch(apiUrl("/api/people")).then((r) => r.json()),
-      fetch(apiUrl("/api/categories")).then((r) => r.json()),
+      fetch("api/people").then((r) => r.json()),
+      fetch("api/categories").then((r) => r.json()),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
@@ -68,7 +67,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      const res = await fetch(apiUrl("/api/people"), {
+      const res = await fetch("api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -91,7 +90,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetch(apiUrl("/api/categories"), {
+      const res = await fetch("api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -111,7 +110,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      const res = await fetch(apiUrl("/api/categories/reorder"), {
+      const res = await fetch("api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -137,7 +136,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetch(apiUrl(`/api/categories/${deleteCatTarget.id}`), { method: "DELETE" });
+      const res = await fetch(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         alert(`Delete failed: ${data?.error ?? res.statusText}`);
@@ -164,7 +163,7 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const res = await fetch(apiUrl(`/api/people/${personId}/rounds`));
+      const res = await fetch(`api/people/${personId}/rounds`);
       const data = (await res.json().catch(() => null)) as RoundHistoryItem[] | null;
 
       if (!res.ok || !Array.isArray(data)) {
@@ -194,7 +193,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      const res = await fetch(apiUrl(`/api/rounds/${deleteRoundTarget.roundId}`), { method: "DELETE" });
+      const res = await fetch(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -203,7 +202,7 @@ export default function AdminPage() {
       }
 
       // refresh rounds for that person
-      const res2 = await fetch(apiUrl(`/api/people/${deleteRoundTarget.personId}/rounds`));
+      const res2 = await fetch(`api/people/${deleteRoundTarget.personId}/rounds`);
       const data2 = (await res2.json().catch(() => null)) as RoundHistoryItem[] | null;
 
       if (res2.ok && Array.isArray(data2)) {
