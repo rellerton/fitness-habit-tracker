@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/ingress";
-import DebugIngress from "@/components/DebugIngress";
 
 
 type Person = { id: string; name: string };
@@ -228,9 +227,6 @@ export default function AdminPage() {
             Manage people, categories, and rounds.
           </p>
         </div>
-
-        <DebugIngress />
-        
         <div className="flex gap-2">
           <Link
             href="/people"
