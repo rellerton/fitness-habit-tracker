@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,26 +17,12 @@ export const metadata: Metadata = {
   description: "Cricular Grid Style Fitness Tracker",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // headers() IS ASYNC in App Router
-  const h = await headers();
-
-  // Only present in HA ingress (we inject via nginx)
-  const ingress = h.get("x-ingress-path") ?? "";
-
-  // Only set <base> when ingress exists (HA only)
-  const baseHref = ingress
-    ? `${ingress.replace(/\/$/, "")}/`
-    : null;
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <head>{baseHref ? <base href={baseHref} /> : null}</head>
-
+    <html
+      lang="en"
+      className={`h-full ${geistSans.variable} ${geistMono.variable}`}
+    >
       <body className="h-full bg-slate-950 text-slate-100 antialiased">
         <div className="min-h-full bg-slate-950">{children}</div>
       </body>
