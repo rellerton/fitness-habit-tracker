@@ -16,6 +16,22 @@ type RoundHistoryItem = {
   entries: { categoryId: string; date: string; status: string }[];
 };
 
+function getIngressPrefix(): string {
+  if (typeof window === "undefined") return "";
+  const p = window.location.pathname;
+
+  // HA ingress paths show up like:
+  // /api/hassio_ingress/<token>/...
+  const m = p.match(/^\/api\/hassio_ingress\/[^/]+/);
+  return m ? m[0] : "";
+}
+
+function apiUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const prefix = getIngressPrefix();
+  return prefix ? `${prefix}${p}` : p;
+}
+
 export default function AdminPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
@@ -43,13 +59,17 @@ export default function AdminPage() {
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
-  async function fetchJson(url: string, options: RequestInit = {}) {
+  async function fetchJson(path: string, options: RequestInit = {}) {
+    const url = apiUrl(path);
     const res = await fetch(url, options);
-    console.log(`Fetch attempted: ${url} → Resolved URL: ${res.url} - Status: ${res.status}`);
+
+    console.log(
+      `[AdminPage] fetch ${path} => ${url} | resolved: ${res.url} | ${res.status}`
+    );
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "No response body");
-      console.error(`Fetch failed for ${res.url}: ${res.status} - ${errText}`);
+      console.error(`[AdminPage] fetch failed: ${res.url} ${res.status} ${errText}`);
       throw new Error(`Request failed: ${res.status} ${errText}`);
     }
 
@@ -64,23 +84,20 @@ export default function AdminPage() {
       ]);
 
       setPeople(Array.isArray(p) ? p : []);
-      // make sure cats sorted by sortOrder
+
       const catsArr = Array.isArray(c) ? c : [];
       catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       setCats(catsArr);
     } catch (err) {
-      console.error("[AdminPage] Refresh failed:", err);
+      console.error("[AdminPage] refresh failed:", err);
       alert("Failed to load people/categories. Check browser console for details.");
     }
   }
 
   useEffect(() => {
+    console.log("[AdminPage] hydrated:", window.location.pathname, "ingressPrefix:", getIngressPrefix());
     refresh();
-  }, []);
-
-  useEffect(() => {
-    console.log("[AdminPage] hydrated", window.location.pathname);
-    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function addPerson() {
@@ -89,7 +106,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      const res = await fetchJson("/api/people", {
+      await fetchJson("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -109,7 +126,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetchJson("/api/categories", {
+      await fetchJson("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -126,7 +143,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      const res = await fetchJson("api/categories/reorder", {
+      await fetchJson("/api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -149,7 +166,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`/api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
@@ -168,22 +185,21 @@ export default function AdminPage() {
 
     setExpandedPersonId(personId);
 
-    // already loaded
     if (roundsByPerson[personId]) return;
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`api/people/${personId}/rounds`);
+      const data = await fetchJson(`/api/people/${personId}/rounds`);
 
       if (!Array.isArray(data)) {
-        console.error("Rounds data is not an array:", data);
+        console.error("[AdminPage] rounds response is not an array:", data);
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
         return;
       }
 
       setRoundsByPerson((prev) => ({ ...prev, [personId]: data }));
     } catch (err) {
-      console.error("Failed to load rounds for person", personId, ":", err);
+      console.error("[AdminPage] failed to load rounds:", err);
       setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
     } finally {
       setRoundsLoading((prev) => ({ ...prev, [personId]: false }));
@@ -205,11 +221,9 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`/api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      // refresh rounds for that person
-      const data = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
-
+      const data = await fetchJson(`/api/people/${deleteRoundTarget.personId}/rounds`);
       if (Array.isArray(data)) {
         setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data }));
       }
@@ -229,18 +243,16 @@ export default function AdminPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Admin</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Manage people, categories, and rounds.
-          </p>
+          <p className="mt-1 text-sm text-slate-400">Manage people, categories, and rounds.</p>
         </div>
         <div className="flex gap-2">
-          <Link 
+          <Link
             href="people"
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
           </Link>
-          <Link 
+          <Link
             href="."
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
@@ -293,9 +305,7 @@ export default function AdminPage() {
                       className="flex w-full items-center justify-between gap-3 text-left"
                       onClick={() => togglePerson(p.id)}
                     >
-                      <span className="font-medium text-slate-100">
-                        {p.name}
-                      </span>
+                      <span className="font-medium text-slate-100">{p.name}</span>
                       <span className="text-xs text-slate-400">
                         {expanded ? "Hide rounds" : "Show rounds"}
                       </span>
@@ -321,15 +331,11 @@ export default function AdminPage() {
                               <tbody>
                                 {rounds.map((r) => (
                                   <tr key={r.id} className="border-t border-white/10 text-sm">
-                                    <td className="py-2 pr-2 text-slate-200">
-                                      Round {r.roundNumber}
-                                    </td>
+                                    <td className="py-2 pr-2 text-slate-200">Round {r.roundNumber}</td>
                                     <td className="py-2 pr-2 text-slate-400">
                                       {String(r.startDate).slice(0, 10)}
                                     </td>
-                                    <td className="py-2 pr-2 text-slate-400">
-                                      {r.lengthWeeks}
-                                    </td>
+                                    <td className="py-2 pr-2 text-slate-400">{r.lengthWeeks}</td>
                                     <td className="py-2 pr-2">
                                       <button
                                         onClick={(e) => {
@@ -422,15 +428,6 @@ export default function AdminPage() {
                     >
                       ↓
                     </button>
-
-                    {/* <button
-                      onClick={() => openDeleteCategory(c.id, c.name)}
-                      disabled={busy !== null}
-                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10 disabled:opacity-50"
-                      title="Delete category"
-                    >
-                      Delete
-                    </button> */}
                   </div>
                 </li>
               ))}
