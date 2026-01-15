@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/ingress";
+import DebugIngress from "@/components/DebugIngress";
 
 
 type Person = { id: string; name: string };
@@ -44,19 +45,6 @@ export default function AdminPage() {
 
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
-
-  const [debug, setDebug] = useState<string>("");
-
-  useEffect(() => {
-    const ingress = (window as any).__INGRESS_PATH__;
-    setDebug([
-      `pathname: ${window.location.pathname}`,
-      `__INGRESS_PATH__: ${ingress ?? "undefined"}`,
-      `apiUrl(/api/people): ${apiUrl("/api/people")}`,
-      `apiUrl(/api/categories): ${apiUrl("/api/categories")}`,
-    ].join("\n"));
-  }, []);
-
 
   async function refresh() {
     const [p, c] = await Promise.all([
@@ -240,13 +228,9 @@ export default function AdminPage() {
             Manage people, categories, and rounds.
           </p>
         </div>
-        <div style={{ background: "#fff", color: "#000", padding: 10, border: "2px solid red" }}>
-          <div>pathname: {typeof window === "undefined" ? "server" : window.location.pathname}</div>
-          <div>__INGRESS_PATH__: {typeof window === "undefined" ? "server" : String((window as any).__INGRESS_PATH__ ?? "undefined")}</div>
-          <div>api(/api/people): {typeof window === "undefined" ? "server" : apiUrl("/api/people")}</div>
-        </div>
 
-
+        <DebugIngress />
+        
         <div className="flex gap-2">
           <Link
             href="/people"
