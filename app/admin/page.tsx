@@ -23,12 +23,10 @@ export default function AdminPage() {
   const [catName, setCatName] = useState("");
   const [busy, setBusy] = useState<"person" | "category" | null>(null);
 
-  // Expanded person + their rounds
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const [roundsByPerson, setRoundsByPerson] = useState<Record<string, RoundHistoryItem[]>>({});
   const [roundsLoading, setRoundsLoading] = useState<Record<string, boolean>>({});
 
-  // Modals
   const [deleteRoundOpen, setDeleteRoundOpen] = useState(false);
   const [deleteRoundTarget, setDeleteRoundTarget] = useState<{
     roundId: string;
@@ -45,11 +43,11 @@ export default function AdminPage() {
 
   async function fetchJson(url: string, options: RequestInit = {}) {
     const res = await fetch(url, options);
-    console.log(`[fetch] ${url} -> ${res.url} (${res.status})`);
+    console.log(`Fetch attempted: ${url} → Resolved URL: ${res.url} - Status: ${res.status}`);
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "No response body");
-      console.error(`[fetch FAIL] ${res.url} (${res.status}) ${errText}`);
+      console.error(`Fetch failed for ${res.url}: ${res.status} - ${errText}`);
       throw new Error(`Request failed: ${res.status} ${errText}`);
     }
 
@@ -57,24 +55,23 @@ export default function AdminPage() {
   }
 
   async function refresh() {
-    const [p, c] = await Promise.all([
-      fetchJson("api/people"),
-      fetchJson("api/categories"),
-    ]);
+    try {
+      const [p, c] = await Promise.all([fetchJson("/api/people"), fetchJson("/api/categories")]);
 
-    setPeople(Array.isArray(p) ? p : []);
+      setPeople(Array.isArray(p) ? p : []);
 
-    const catsArr = Array.isArray(c) ? c : [];
-    catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    setCats(catsArr);
+      const catsArr = Array.isArray(c) ? c : [];
+      catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      setCats(catsArr);
+    } catch (err) {
+      console.error("[AdminPage] Refresh failed:", err);
+      alert("Failed to load people/categories. Check browser console for details.");
+    }
   }
 
   useEffect(() => {
-    console.log("[AdminPage] mounted at", window.location.pathname);
-    refresh().catch((err) => {
-      console.error("[AdminPage] refresh failed:", err);
-      alert("Failed to load people/categories. Check browser console for details.");
-    });
+    console.log("[AdminPage] hydrated", window.location.pathname);
+    refresh();
   }, []);
 
   async function addPerson() {
@@ -83,12 +80,11 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson("api/people", {
+      await fetchJson("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-
       setPersonName("");
       await refresh();
     } catch (err) {
@@ -104,12 +100,11 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson("api/categories", {
+      await fetchJson("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-
       setCatName("");
       await refresh();
     } catch (err) {
@@ -122,7 +117,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      await fetchJson("api/categories/reorder", {
+      await fetchJson("/api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -145,7 +140,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`/api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
@@ -168,15 +163,17 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`api/people/${personId}/rounds`);
+      const data = await fetchJson(`/api/people/${personId}/rounds`);
+
       if (!Array.isArray(data)) {
         console.error("Rounds data is not an array:", data);
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
         return;
       }
+
       setRoundsByPerson((prev) => ({ ...prev, [personId]: data }));
     } catch (err) {
-      console.error("Failed to load rounds:", err);
+      console.error("Failed to load rounds for person", personId, ":", err);
       setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
     } finally {
       setRoundsLoading((prev) => ({ ...prev, [personId]: false }));
@@ -198,9 +195,9 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`/api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
+      const data = await fetchJson(`/api/people/${deleteRoundTarget.personId}/rounds`);
       if (Array.isArray(data)) {
         setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data }));
       }
@@ -216,7 +213,6 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Admin</h1>
@@ -224,13 +220,13 @@ export default function AdminPage() {
         </div>
         <div className="flex gap-2">
           <Link
-            href="people"
+            href="../people"
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
           </Link>
           <Link
-            href="."
+            href=".."
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
@@ -238,7 +234,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="mt-7 grid gap-6 lg:grid-cols-2">
         {/* People card */}
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
@@ -283,9 +278,7 @@ export default function AdminPage() {
                       onClick={() => togglePerson(p.id)}
                     >
                       <span className="font-medium text-slate-100">{p.name}</span>
-                      <span className="text-xs text-slate-400">
-                        {expanded ? "Hide rounds" : "Show rounds"}
-                      </span>
+                      <span className="text-xs text-slate-400">{expanded ? "Hide rounds" : "Show rounds"}</span>
                     </button>
 
                     {expanded && (
@@ -327,9 +320,7 @@ export default function AdminPage() {
                               </tbody>
                             </table>
 
-                            <p className="mt-2 text-xs text-slate-500">
-                              Admin can delete any round (including most recent).
-                            </p>
+                            <p className="mt-2 text-xs text-slate-500">Admin can delete any round (including most recent).</p>
                           </div>
                         )}
                       </div>
@@ -339,9 +330,7 @@ export default function AdminPage() {
               })}
 
               {people.length === 0 && (
-                <li className="px-4 py-6 text-sm text-slate-400">
-                  No people yet. Add your first person above.
-                </li>
+                <li className="px-4 py-6 text-sm text-slate-400">No people yet. Add your first person above.</li>
               )}
             </ul>
           </div>
@@ -408,9 +397,7 @@ export default function AdminPage() {
               ))}
 
               {cats.length === 0 && (
-                <li className="px-4 py-6 text-sm text-slate-400">
-                  No categories yet. Add one above.
-                </li>
+                <li className="px-4 py-6 text-sm text-slate-400">No categories yet. Add one above.</li>
               )}
             </ul>
           </div>
@@ -420,17 +407,12 @@ export default function AdminPage() {
       {/* Delete Round modal */}
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => busy === null && setDeleteRoundOpen(false)}
-          />
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteRoundOpen(false)} />
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">
               Delete {deleteRoundTarget.personName} — Round {deleteRoundTarget.roundNumber}?
             </h3>
-            <p className="mt-2 text-sm text-slate-300">
-              This permanently deletes the round and all entries. This cannot be undone.
-            </p>
+            <p className="mt-2 text-sm text-slate-300">This permanently deletes the round and all entries. This cannot be undone.</p>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
@@ -456,14 +438,9 @@ export default function AdminPage() {
       {/* Delete Category modal */}
       {deleteCatOpen && deleteCatTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => busy === null && setDeleteCatOpen(false)}
-          />
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteCatOpen(false)} />
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
-            <h3 className="text-lg font-semibold text-slate-100">
-              Delete category “{deleteCatTarget.name}”?
-            </h3>
+            <h3 className="text-lg font-semibold text-slate-100">Delete category “{deleteCatTarget.name}”?</h3>
             <p className="mt-2 text-sm text-slate-300">
               This removes the category from the master list. Existing rounds keep their snapshot categories.
             </p>
