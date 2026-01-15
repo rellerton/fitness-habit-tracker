@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-
 type Person = { id: string; name: string };
 type Category = { id: string; name: string; sortOrder: number };
 
@@ -44,17 +43,35 @@ export default function AdminPage() {
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
-  async function refresh() {
-    const [p, c] = await Promise.all([
-      fetch("api/people").then((r) => r.json()),
-      fetch("api/categories").then((r) => r.json()),
-    ]);
+  async function fetchJson(url: string, options: RequestInit = {}) {
+    const res = await fetch(url, options);
+    console.log(`Fetch attempted: ${url} → Resolved URL: ${res.url} - Status: ${res.status}`);
 
-    setPeople(Array.isArray(p) ? p : []);
-    // make sure cats sorted by sortOrder
-    const catsArr = Array.isArray(c) ? c : [];
-    catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    setCats(catsArr);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "No response body");
+      console.error(`Fetch failed for ${res.url}: ${res.status} - ${errText}`);
+      throw new Error(`Request failed: ${res.status} ${errText}`);
+    }
+
+    return res.json();
+  }
+
+  async function refresh() {
+    try {
+      const [p, c] = await Promise.all([
+        fetchJson("/api/people"),
+        fetchJson("/api/categories"),
+      ]);
+
+      setPeople(Array.isArray(p) ? p : []);
+      // make sure cats sorted by sortOrder
+      const catsArr = Array.isArray(c) ? c : [];
+      catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      setCats(catsArr);
+    } catch (err) {
+      console.error("[AdminPage] Refresh failed:", err);
+      alert("Failed to load people/categories. Check browser console for details.");
+    }
   }
 
   useEffect(() => {
@@ -66,25 +83,21 @@ export default function AdminPage() {
     refresh();
   }, []);
 
-
   async function addPerson() {
     const name = personName.trim();
     if (!name) return;
 
     setBusy("person");
     try {
-      const res = await fetch("api/people", {
+      const res = await fetchJson("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(`Failed to add person: ${err?.error ?? res.statusText}`);
-        return;
-      }
       setPersonName("");
       await refresh();
+    } catch (err) {
+      alert(`Failed to add person: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -96,18 +109,15 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetch("api/categories", {
+      const res = await fetchJson("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(`Failed to add category: ${err?.error ?? res.statusText}`);
-        return;
-      }
       setCatName("");
       await refresh();
+    } catch (err) {
+      alert(`Failed to add category: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -116,17 +126,14 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      const res = await fetch("api/categories/reorder", {
+      const res = await fetchJson("api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(`Reorder failed: ${data?.error ?? res.statusText}`);
-        return;
-      }
       await refresh();
+    } catch (err) {
+      alert(`Reorder failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -142,15 +149,12 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      const res = await fetch(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(`Delete failed: ${data?.error ?? res.statusText}`);
-        return;
-      }
+      const res = await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
+    } catch (err) {
+      alert(`Delete failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -169,16 +173,18 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const res = await fetch(`api/people/${personId}/rounds`);
-      const data = (await res.json().catch(() => null)) as RoundHistoryItem[] | null;
+      const data = await fetchJson(`api/people/${personId}/rounds`);
 
-      if (!res.ok || !Array.isArray(data)) {
-        console.error("Failed to load rounds:", data);
+      if (!Array.isArray(data)) {
+        console.error("Rounds data is not an array:", data);
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
         return;
       }
 
       setRoundsByPerson((prev) => ({ ...prev, [personId]: data }));
+    } catch (err) {
+      console.error("Failed to load rounds for person", personId, ":", err);
+      setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
     } finally {
       setRoundsLoading((prev) => ({ ...prev, [personId]: false }));
     }
@@ -199,24 +205,19 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      const res = await fetch(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        alert(`Delete failed: ${data?.error ?? res.statusText}`);
-        return;
-      }
+      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
       // refresh rounds for that person
-      const res2 = await fetch(`api/people/${deleteRoundTarget.personId}/rounds`);
-      const data2 = (await res2.json().catch(() => null)) as RoundHistoryItem[] | null;
+      const data = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
 
-      if (res2.ok && Array.isArray(data2)) {
-        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
+      if (Array.isArray(data)) {
+        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data }));
       }
 
       setDeleteRoundOpen(false);
       setDeleteRoundTarget(null);
+    } catch (err) {
+      alert(`Delete failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
