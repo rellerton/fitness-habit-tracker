@@ -61,6 +61,12 @@ export default function AdminPage() {
     refresh();
   }, []);
 
+  useEffect(() => {
+    console.log("[AdminPage] hydrated", window.location.pathname);
+    refresh();
+  }, []);
+
+
   async function addPerson() {
     const name = personName.trim();
     if (!name) return;
