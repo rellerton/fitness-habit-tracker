@@ -3,7 +3,12 @@ set -euo pipefail
 
 export NODE_ENV=production
 
-# Pull DB URL from HA options (preferred)
+echo "==> Fitness Habit Tracker (HA add-on) starting"
+
+# Always run from app directory
+cd /app
+
+# Pull DB URL from HA options.json if present
 DB_URL=""
 if [[ -f /data/options.json ]]; then
   DB_URL="$(grep -oE '"database_url"\s*:\s*"[^"]+"' /data/options.json \
@@ -17,7 +22,6 @@ fi
 
 export DATABASE_URL="${DB_URL}"
 
-echo "==> Fitness Habit Tracker (HA add-on) starting"
 echo "==> NODE_ENV=${NODE_ENV}"
 echo "==> DATABASE_URL=${DATABASE_URL}"
 
@@ -33,4 +37,4 @@ echo "==> starting Next.js on :3001"
 PORT=3001 npm run start &
 
 echo "==> starting nginx on :3000 (ingress)"
-nginx -g "daemon off;"
+exec nginx -g "daemon off;"
