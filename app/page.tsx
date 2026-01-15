@@ -1,4 +1,4 @@
-import IngressLink from "@/components/IngressLink";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -15,19 +15,19 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <IngressLink
-            href="/admin"
+          <Link
+            href="admin"
             className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400"
           >
             Admin
-          </IngressLink>
+          </Link>
 
-          <IngressLink
-            href="/people"
+          <Link
+            href="people"
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:bg-white/10"
           >
             People
-          </IngressLink>
+          </Link>
         </div>
       </div>
     </main>
