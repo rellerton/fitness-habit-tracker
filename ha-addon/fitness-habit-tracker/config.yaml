@@ -1,5 +1,5 @@
 name: "Fitness Habit Tracker"
-version: "v1.0.17"
+version: "v1.0.18"
 slug: "fitness_habit_tracker"
 description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
 url: "https://github.com/rellerton/fitness-habit-tracker"
