@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
+import IngressLink from "@/components/IngressLink";
 import RoundWheel from "@/components/RoundWheel";
 import StatusLegend from "@/components/StatusLegend";
 import { useSearchParams } from "next/navigation";
@@ -314,18 +314,18 @@ export default function PersonPage() {
           </div>
             {!hideControls && (
               <div className="flex gap-2">
-                <Link
+                <IngressLink 
                   href="/people"
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
                 >
                   ← People
-                </Link>
-                <Link
+                </IngressLink>
+                <IngressLink 
                   href="/admin"
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
                 >
                   Admin
-                </Link>
+                </IngressLink>
               </div>
             )}
         </div>
@@ -406,12 +406,12 @@ export default function PersonPage() {
 
         <div className="flex flex-wrap gap-2">
           {!hideControls && (
-            <Link
+            <IngressLink
               href="/people"
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
             >
               ← People
-            </Link>
+            </IngressLink>
           )}
 
           <button
