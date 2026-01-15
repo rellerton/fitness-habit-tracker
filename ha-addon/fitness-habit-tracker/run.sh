@@ -5,14 +5,17 @@ export NODE_ENV=production
 
 echo "==> Fitness Habit Tracker (HA add-on) starting"
 
+# Always run from app directory
 cd /app
 
+# Pull DB URL from HA options.json if present
 DB_URL=""
 if [[ -f /data/options.json ]]; then
   DB_URL="$(grep -oE '"database_url"\s*:\s*"[^"]+"' /data/options.json \
     | sed -E 's/.*"database_url"\s*:\s*"([^"]+)".*/\1/' || true)"
 fi
 
+# Fallback
 if [[ -z "${DB_URL}" ]]; then
   DB_URL="file:/data/dev.db"
 fi
@@ -30,34 +33,22 @@ npx prisma generate
 echo "==> prisma migrate deploy"
 npx prisma migrate deploy
 
-ADDON_NGINX_CONF="/app/ha-addon/nginx.conf"
-if [[ ! -f "${ADDON_NGINX_CONF}" ]]; then
-  echo "!! ERROR: nginx.conf not found at ${ADDON_NGINX_CONF}"
-  echo "!! Dumping /app/ha-addon:"
-  ls -la /app/ha-addon || true
-  exit 1
-fi
-
-NGINX_TARGET=""
-if [[ -d "/etc/nginx/http.d" ]]; then
-  NGINX_TARGET="/etc/nginx/http.d/default.conf"
-elif [[ -d "/etc/nginx/conf.d" ]]; then
-  NGINX_TARGET="/etc/nginx/conf.d/default.conf"
-else
-  echo "!! ERROR: Could not find nginx include directory (/etc/nginx/http.d or /etc/nginx/conf.d)"
+# Sanity check: nginx config must exist where Dockerfile copied it
+NGINX_CONF="/etc/nginx/http.d/default.conf"
+if [[ ! -f "${NGINX_CONF}" ]]; then
+  echo "!! ERROR: nginx default.conf not found at ${NGINX_CONF}"
+  echo "!! Dumping /etc/nginx:"
   ls -la /etc/nginx || true
+  echo "!! Dumping /etc/nginx/http.d:"
+  ls -la /etc/nginx/http.d || true
   exit 1
 fi
-
-echo "==> Installing nginx config: ${ADDON_NGINX_CONF} -> ${NGINX_TARGET}"
-cp -f "${ADDON_NGINX_CONF}" "${NGINX_TARGET}"
 
 echo "==> nginx -t"
 nginx -t
 
-echo "==> starting Next.js (production) on :3001"
-export PORT=3001
-npx next start -p 3001 &
+echo "==> starting Next.js on :3001"
+PORT=3001 npm run start &
 
 echo "==> starting nginx on :3000 (ingress)"
 exec nginx -g "daemon off;"
