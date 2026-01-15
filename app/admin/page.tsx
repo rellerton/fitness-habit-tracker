@@ -43,35 +43,30 @@ export default function AdminPage() {
 
   async function fetchJson(url: string, options: RequestInit = {}) {
     const res = await fetch(url, options);
-    console.log(`Fetch attempted: ${url} → Resolved URL: ${res.url} - Status: ${res.status}`);
-
     if (!res.ok) {
-      const errText = await res.text().catch(() => "No response body");
-      console.error(`Fetch failed for ${res.url}: ${res.status} - ${errText}`);
-      throw new Error(`Request failed: ${res.status} ${errText}`);
+      const txt = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${res.statusText}${txt ? ` - ${txt}` : ""}`);
     }
-
     return res.json();
   }
 
   async function refresh() {
-    try {
-      const [p, c] = await Promise.all([fetchJson("/api/people"), fetchJson("/api/categories")]);
+    const [p, c] = await Promise.all([
+      fetchJson("api/people"),
+      fetchJson("api/categories"),
+    ]);
 
-      setPeople(Array.isArray(p) ? p : []);
+    setPeople(Array.isArray(p) ? p : []);
 
-      const catsArr = Array.isArray(c) ? c : [];
-      catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      setCats(catsArr);
-    } catch (err) {
-      console.error("[AdminPage] Refresh failed:", err);
-      alert("Failed to load people/categories. Check browser console for details.");
-    }
+    const catsArr = Array.isArray(c) ? c : [];
+    catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    setCats(catsArr);
   }
 
   useEffect(() => {
-    console.log("[AdminPage] hydrated", window.location.pathname);
-    refresh();
+    refresh().catch((e) => {
+      console.error("[AdminPage] refresh failed:", e);
+    });
   }, []);
 
   async function addPerson() {
@@ -80,15 +75,16 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson("/api/people", {
+      await fetchJson("api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
       setPersonName("");
       await refresh();
-    } catch (err) {
-      alert(`Failed to add person: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to add person: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -100,15 +96,16 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson("/api/categories", {
+      await fetchJson("api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
       setCatName("");
       await refresh();
-    } catch (err) {
-      alert(`Failed to add category: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to add category: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -117,14 +114,15 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      await fetchJson("/api/categories/reorder", {
+      await fetchJson("api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
       });
       await refresh();
-    } catch (err) {
-      alert(`Reorder failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      console.error(e);
+      alert(`Reorder failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -140,12 +138,13 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`/api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
-    } catch (err) {
-      alert(`Delete failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      console.error(e);
+      alert(`Delete failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -163,17 +162,16 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`/api/people/${personId}/rounds`);
+      const data = await fetchJson(`api/people/${personId}/rounds`);
 
       if (!Array.isArray(data)) {
-        console.error("Rounds data is not an array:", data);
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
         return;
       }
 
       setRoundsByPerson((prev) => ({ ...prev, [personId]: data }));
-    } catch (err) {
-      console.error("Failed to load rounds for person", personId, ":", err);
+    } catch (e) {
+      console.error("Failed to load rounds:", e);
       setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
     } finally {
       setRoundsLoading((prev) => ({ ...prev, [personId]: false }));
@@ -195,17 +193,18 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`/api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data = await fetchJson(`/api/people/${deleteRoundTarget.personId}/rounds`);
-      if (Array.isArray(data)) {
-        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data }));
+      const data2 = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
+      if (Array.isArray(data2)) {
+        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
       }
 
       setDeleteRoundOpen(false);
       setDeleteRoundTarget(null);
-    } catch (err) {
-      alert(`Delete failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      console.error(e);
+      alert(`Delete failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -218,15 +217,16 @@ export default function AdminPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Admin</h1>
           <p className="mt-1 text-sm text-slate-400">Manage people, categories, and rounds.</p>
         </div>
+
         <div className="flex gap-2">
           <Link
-            href="../people"
+            href="people"
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
           </Link>
           <Link
-            href=".."
+            href="."
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
@@ -235,7 +235,6 @@ export default function AdminPage() {
       </div>
 
       <div className="mt-7 grid gap-6 lg:grid-cols-2">
-        {/* People card */}
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-100">People</h2>
@@ -336,7 +335,6 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* Categories card */}
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-100">Categories</h2>
@@ -404,7 +402,6 @@ export default function AdminPage() {
         </section>
       </div>
 
-      {/* Delete Round modal */}
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteRoundOpen(false)} />
@@ -435,7 +432,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Delete Category modal */}
       {deleteCatOpen && deleteCatTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteCatOpen(false)} />

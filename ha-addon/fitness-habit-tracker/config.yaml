@@ -1,5 +1,5 @@
 name: "Fitness Habit Tracker"
-version: "v1.0.43"
+version: "v1.0.44"
 slug: "fitness_habit_tracker"
 description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
 url: "https://github.com/rellerton/fitness-habit-tracker"
@@ -33,3 +33,4 @@ environment:
   DATABASE_URL: "%database_url%"
   NODE_ENV: "production"
   PORT: "3001"
+  NEXT_PUBLIC_ASSET_PREFIX: "."
