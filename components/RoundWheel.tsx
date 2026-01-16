@@ -13,6 +13,7 @@ export type RoundWheelEntry = {
 type Props = {
   roundId: string;
   roundNumber: number;
+  personName?: string | null;
   startDate: string;
   lengthWeeks: number;
   categories: Category[];
@@ -65,6 +66,14 @@ function annularSectorPath(
     `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p3.x} ${p3.y}`,
     "Z",
   ].join(" ");
+}
+
+function arcPath(cx: number, cy: number, r: number, a0: number, a1: number) {
+  const p0 = polar(cx, cy, r, a0);
+  const p1 = polar(cx, cy, r, a1);
+  const largeArc = a1 - a0 > Math.PI ? 1 : 0;
+
+  return `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} 1 ${p1.x} ${p1.y}`;
 }
 
 function statusGlyph(status: string) {
@@ -141,6 +150,7 @@ function glyphColor(status: string) {
 export default function RoundWheel({
   roundId,
   roundNumber,
+  personName,
   startDate,
   lengthWeeks,
   categories,
@@ -149,6 +159,7 @@ export default function RoundWheel({
   size = 640,
 }: Props) {
   const totalDays = lengthWeeks * 7;
+  const labelDays = 7;
 
   const days = useMemo(() => {
     const start = parseLocalDay(startDate);
@@ -173,20 +184,6 @@ export default function RoundWheel({
     return idx >= 0 ? idx : -1;
   }, [days, todayKey]);
 
-  // Estimate legend width so it centers nicely.
-  const legendLayout = useMemo(() => {
-    const fontSize = 12;
-    const charW = 6.2;
-    const dotR = 5;
-    const gap = 10;
-
-    const maxLen = Math.max(0, ...categories.map((c) => c.displayName.length));
-    const textW = maxLen * charW;
-    const totalW = dotR * 2 + gap + textW;
-
-    return { fontSize, dotR, gap, totalW };
-  }, [categories]);
-
   const view = 500;
   const cx = view / 2;
   const cy = view / 2;
@@ -203,8 +200,13 @@ export default function RoundWheel({
   const ringThickness = (gridOuter - 78) / ringCount;
   const innerBase = gridOuter - ringCount * ringThickness;
 
-  const step = (Math.PI * 2) / totalDays;
-  const rotation = -Math.PI / 2;
+  const totalSegments = totalDays + labelDays;
+  const step = (Math.PI * 2) / totalSegments;
+  const rotation = -Math.PI / 2 - labelDays * step;
+
+  // Category label slice (fixed angle band, non-clickable)
+  const labelSliceStart = rotation;
+  const labelSliceEnd = rotation + labelDays * step;
 
   // Label positions (inside label band)
   const labelMidR = (gridOuter + labelOuter) / 2;
@@ -256,9 +258,27 @@ export default function RoundWheel({
             );
           })}
 
+          {/* Label slice boundaries */}
+          {[labelSliceStart, labelSliceEnd].map((angle, idx) => {
+            const pOut = polar(cx, cy, labelOuter, angle);
+            const pIn = polar(cx, cy, innerBase, angle);
+
+            return (
+              <line
+                key={`label-boundary-${idx}`}
+                x1={pIn.x}
+                y1={pIn.y}
+                x2={pOut.x}
+                y2={pOut.y}
+                stroke="rgba(255,255,255,0.32)"
+                strokeWidth={2.2}
+              />
+            );
+          })}
+
           {/* Week boundary ticks */}
           {Array.from({ length: lengthWeeks + 1 }, (_, w) => {
-            const dayIdx = w * 7;
+            const dayIdx = labelDays + w * 7;
             const angle = rotation + dayIdx * step;
 
             const pOut = polar(cx, cy, labelOuter, angle);
@@ -279,7 +299,7 @@ export default function RoundWheel({
 
           {/* Week labels */}
           {Array.from({ length: lengthWeeks }, (_, w) => {
-            const midDay = w * 7 + 3.5;
+            const midDay = labelDays + w * 7 + 3.5;
             const angle = rotation + midDay * step;
             const pos = polar(cx, cy, weekR, angle);
             const deg = (angle * 180) / Math.PI + 90;
@@ -307,7 +327,7 @@ export default function RoundWheel({
             const day = days[dayIdx];
             if (!day) return null;
 
-            const angle = rotation + dayIdx * step;
+            const angle = rotation + (labelDays + dayIdx) * step;
             const pos = polar(cx, cy, dateR, angle);
             const deg = (angle * 180) / Math.PI + 90;
 
@@ -330,8 +350,8 @@ export default function RoundWheel({
 
           {/* ✅ Today highlight (only if today's date is within this round) */}
           {todayIdx >= 0 && (() => {
-            const a0 = rotation + todayIdx * step;
-            const a1 = rotation + (todayIdx + 1) * step;
+            const a0 = rotation + (labelDays + todayIdx) * step;
+            const a1 = rotation + (labelDays + todayIdx + 1) * step;
 
             // Outer arc endpoints
             const o0 = polar(cx, cy, gridOuter + 1.2, a0);
@@ -410,8 +430,8 @@ export default function RoundWheel({
             const rInner = rOuter - ringThickness + ringGap;
 
             return days.map((day, dayIdx) => {
-              const a0 = rotation + dayIdx * step;
-              const a1 = rotation + (dayIdx + 1) * step;
+              const a0 = rotation + (labelDays + dayIdx) * step;
+              const a1 = rotation + (labelDays + dayIdx + 1) * step;
 
               const key = `${cat.categoryId}|${day}`;
               const status = entryMap.get(key) ?? "EMPTY";
@@ -494,6 +514,51 @@ export default function RoundWheel({
             });
           })}
 
+          {/* Category label slice */}
+          <g>
+            {categories.map((cat, ringIdx) => {
+              const rOuter = gridOuter - ringIdx * ringThickness;
+              const rInner = rOuter - ringThickness + ringGap;
+              const midR = (rInner + rOuter) / 2;
+              const arcId = `label-arc-${roundId}-${cat.categoryId}`;
+
+              return (
+                <g key={`label-slice-${cat.categoryId}`}>
+                  <path
+                    d={annularSectorPath(
+                      cx,
+                      cy,
+                      rInner,
+                      rOuter,
+                      labelSliceStart,
+                      labelSliceEnd
+                    )}
+                    fill={rgba(ringRGB(ringIdx), 0.18)}
+                    stroke={rgba(ringRGB(ringIdx), 0.45)}
+                    strokeWidth={0.8}
+                  />
+                  <defs>
+                    <path
+                      id={arcId}
+                      d={arcPath(cx, cy, midR, labelSliceStart + 0.01, labelSliceEnd - 0.01)}
+                    />
+                  </defs>
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={11}
+                    fill="rgba(226,232,240,0.95)"
+                    style={{ fontWeight: 800, letterSpacing: 0.2 }}
+                  >
+                    <textPath href={`#${arcId}`} startOffset="50%">
+                      {cat.displayName}
+                    </textPath>
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+
           {/* Center */}
           <circle cx={cx} cy={cy} r={innerBase - 6} fill="rgba(2,6,23,0.80)" />
           <circle
@@ -506,48 +571,27 @@ export default function RoundWheel({
 
           <text
             x={cx}
-            y={cy - 32}
+            y={cy - 12}
             textAnchor="middle"
             dominantBaseline="middle"
-            fill="rgba(255,255,255,0.92)"
+            fill="rgba(226,232,240,0.95)"
+            fontSize={14}
+            style={{ fontWeight: 800, letterSpacing: 0.3 }}
+          >
+            {personName?.trim() ? personName : "Person"}
+          </text>
+          <text
+            x={cx}
+            y={cy + 14}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="rgba(255,255,255,0.95)"
             fontSize={18}
             style={{ fontWeight: 900, letterSpacing: 0.4 }}
           >
             {`Round ${roundNumber}`}
           </text>
 
-          {/* Center legend */}
-          {(() => {
-            const { fontSize, dotR, gap, totalW } = legendLayout;
-
-            const legendX0 = cx - totalW / 2;
-            const dotX = legendX0 + dotR;
-            const textX = legendX0 + dotR * 2 + gap;
-
-            const lineH = categories.length > 4 ? 16 : 18;
-            const startY = cy - (categories.length > 4 ? 18 : 10);
-
-            return categories.map((cat, i) => {
-              const y = startY + i * lineH;
-
-              return (
-                <g key={`center-cat-${cat.categoryId}`}>
-                  <circle cx={dotX} cy={y} r={dotR} fill={ringStroke(i)} opacity={0.95} />
-                  <text
-                    x={textX}
-                    y={y}
-                    dominantBaseline="central"
-                    textAnchor="start"
-                    fontSize={fontSize}
-                    fill="rgba(226,232,240,0.92)"
-                    style={{ fontWeight: 800 }}
-                  >
-                    {cat.displayName}
-                  </text>
-                </g>
-              );
-            });
-          })()}
         </svg>
       </div>
     </div>

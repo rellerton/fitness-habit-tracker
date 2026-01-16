@@ -428,6 +428,7 @@ export default function PersonPage() {
       <RoundWheel
         roundId={round.id}
         roundNumber={roundNumber || 1}
+        personName={person?.name}
         startDate={round.startDate}
         lengthWeeks={round.lengthWeeks}
         categories={round.roundCategories}
@@ -601,6 +602,7 @@ export default function PersonPage() {
               <RoundWheel
                 roundId={openRound.id}
                 roundNumber={openRound.roundNumber}
+                personName={person?.name}
                 startDate={String(openRound.startDate)}
                 lengthWeeks={openRound.lengthWeeks}
                 categories={openRound.roundCategories}
