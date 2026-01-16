@@ -41,7 +41,8 @@ export default function AdminPage() {
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
-  async function fetchJson(url: string, options: RequestInit = {}) {
+  async function fetchJson(path: string, options: RequestInit = {}) {
+    const url = new URL(path, document.baseURI).toString();
     const res = await fetch(url, options);
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
@@ -52,8 +53,8 @@ export default function AdminPage() {
 
   async function refresh() {
     const [p, c] = await Promise.all([
-      fetchJson("/api/people"),
-      fetchJson("/api/categories"),
+      fetchJson("api/people"),
+      fetchJson("api/categories"),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
@@ -75,7 +76,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson("/api/people", {
+      await fetchJson("api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -96,7 +97,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson("/api/categories", {
+      await fetchJson("api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -114,7 +115,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      await fetchJson("/api/categories/reorder", {
+      await fetchJson("api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -138,7 +139,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`/api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
@@ -162,7 +163,7 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`/api/people/${personId}/rounds`);
+      const data = await fetchJson(`api/people/${personId}/rounds`);
 
       if (!Array.isArray(data)) {
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
@@ -193,9 +194,9 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`/api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data2 = await fetchJson(`/api/people/${deleteRoundTarget.personId}/rounds`);
+      const data2 = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
       if (Array.isArray(data2)) {
         setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
       }
@@ -220,13 +221,13 @@ export default function AdminPage() {
 
         <div className="flex gap-2">
           <Link
-            href="/people"
+            href="people"
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
           </Link>
           <Link
-            href="/"
+            href="."
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
