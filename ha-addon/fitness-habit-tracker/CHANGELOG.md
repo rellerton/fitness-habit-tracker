@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v1.1.14
+
+- Force dynamic rendering for layout to allow ingress header inspection.
+
 ## v1.1.13
 
 - Add base href derived from ingress header to fix direct access asset paths.
