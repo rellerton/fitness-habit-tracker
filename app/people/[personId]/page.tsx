@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import RoundWheel from "@/components/RoundWheel";
 import StatusLegend from "@/components/StatusLegend";
-import { useSearchParams } from "next/navigation";
+import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 
 type Person = { id: string; name: string };
@@ -110,6 +110,7 @@ function shouldHideControls(v: string | null) {
 export default function PersonPage() {
   const routeParams = useParams<{ personId: string }>();
   const personId = routeParams.personId;
+  const ingressPrefix = useIngressPrefix();
 
   const [person, setPerson] = useState<Person | null>(null);
 
@@ -137,7 +138,7 @@ export default function PersonPage() {
   async function loadPerson() {
     if (!personId) return;
 
-    const res = await fetch(`api/people/${personId}`);
+    const res = await fetch(apiUrl(`people/${personId}`));
     const data = await res.json().catch(() => null);
 
     if (res.ok && data?.id) {
@@ -152,7 +153,7 @@ export default function PersonPage() {
   async function loadLatestRound() {
     if (!personId) return;
 
-    const res = await fetch(`api/people/${personId}/latest-round`);
+    const res = await fetch(apiUrl(`people/${personId}/latest-round`));
     const data = (await res.json().catch(() => null)) as LatestRoundResponse | null;
 
     if (!res.ok) {
@@ -168,7 +169,7 @@ export default function PersonPage() {
     if (!personId) return;
 
     setHistoryLoading(true);
-    const res = await fetch(`api/people/${personId}/rounds`);
+    const res = await fetch(apiUrl(`people/${personId}/rounds`));
     const data = (await res.json().catch(() => null)) as RoundHistoryItem[] | null;
 
     if (!res.ok || !Array.isArray(data)) {
@@ -201,7 +202,7 @@ export default function PersonPage() {
 
     setLoading(true);
 
-    const res = await fetch("api/rounds/start", {
+    const res = await fetch(apiUrl("rounds/start"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ personId, startDate: startDateInput }),
@@ -229,7 +230,7 @@ export default function PersonPage() {
   }, [personId]);
 
   async function cycle(roundId: string, categoryId: string, day: string) {
-    const res = await fetch("api/entries", {
+    const res = await fetch(apiUrl("entries"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roundId, categoryId, date: day, mode: "cycle" }),
@@ -272,7 +273,7 @@ export default function PersonPage() {
 
     setLoading(true);
 
-    const res = await fetch(`api/rounds/${deleteTarget.id}`, { method: "DELETE" });
+    const res = await fetch(apiUrl(`rounds/${deleteTarget.id}`), { method: "DELETE" });
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
@@ -314,13 +315,13 @@ export default function PersonPage() {
             {!hideControls && (
               <div className="flex gap-2">
                 <Link 
-                  href="people"
+                  href={joinIngressPath(ingressPrefix, "/people")}
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
                 >
                   ← People
                 </Link>
                 <Link 
-                  href="admin"
+                  href={joinIngressPath(ingressPrefix, "/admin")}
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
                 >
                   Admin
@@ -406,7 +407,7 @@ export default function PersonPage() {
         <div className="flex flex-wrap gap-2">
           {!hideControls && (
             <Link
-              href="."
+              href={joinIngressPath(ingressPrefix, "/people")}
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
             >
               ← People

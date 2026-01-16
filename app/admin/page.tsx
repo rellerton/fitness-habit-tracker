@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
 type Category = { id: string; name: string; sortOrder: number };
@@ -17,6 +18,8 @@ type RoundHistoryItem = {
 };
 
 export default function AdminPage() {
+  const ingressPrefix = useIngressPrefix();
+
   const [people, setPeople] = useState<Person[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [personName, setPersonName] = useState("");
@@ -42,8 +45,7 @@ export default function AdminPage() {
   const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
 
   async function fetchJson(path: string, options: RequestInit = {}) {
-    const url = new URL(path, document.baseURI).toString();
-    const res = await fetch(url, options);
+    const res = await fetch(apiUrl(path), options);
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       throw new Error(`${res.status} ${res.statusText}${txt ? ` - ${txt}` : ""}`);
@@ -53,8 +55,8 @@ export default function AdminPage() {
 
   async function refresh() {
     const [p, c] = await Promise.all([
-      fetchJson("api/people"),
-      fetchJson("api/categories"),
+      fetchJson("people"),
+      fetchJson("categories"),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
@@ -76,7 +78,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson("api/people", {
+      await fetchJson("people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -97,7 +99,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson("api/categories", {
+      await fetchJson("categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -115,7 +117,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      await fetchJson("api/categories/reorder", {
+      await fetchJson("categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -139,7 +141,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
@@ -163,7 +165,7 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`api/people/${personId}/rounds`);
+      const data = await fetchJson(`people/${personId}/rounds`);
 
       if (!Array.isArray(data)) {
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
@@ -194,9 +196,9 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data2 = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
+      const data2 = await fetchJson(`people/${deleteRoundTarget.personId}/rounds`);
       if (Array.isArray(data2)) {
         setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
       }
@@ -221,13 +223,13 @@ export default function AdminPage() {
 
         <div className="flex gap-2">
           <Link
-            href="people"
+            href={joinIngressPath(ingressPrefix, "/people")}
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
           </Link>
           <Link
-            href="."
+            href={joinIngressPath(ingressPrefix, "/")}
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
