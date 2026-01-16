@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v1.1.12
+
+- Revert asset prefix removal to restore ingress stability.
+
 ## v1.1.11
 
 - Remove `NEXT_PUBLIC_ASSET_PREFIX` so direct access uses absolute `/_next` assets.

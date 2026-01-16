@@ -11,6 +11,7 @@ COPY . /app
 
 # Install + build
 RUN npm ci
+ENV NEXT_PUBLIC_ASSET_PREFIX=.
 RUN npx prisma generate
 RUN npm run build
 
