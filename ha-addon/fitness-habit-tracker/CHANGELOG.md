@@ -1,6 +1,11 @@
 # Changelog
 
 
+## v1.1.13
+
+- Add base href derived from ingress header to fix direct access asset paths.
+- Forward ingress path header from nginx for server-side base URL detection.
+
 ## v1.1.12
 
 - Revert asset prefix removal to restore ingress stability.

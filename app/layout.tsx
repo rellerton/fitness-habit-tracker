@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -11,8 +12,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const ingressPath = headers().get("x-ingress-path") ?? "";
+  const baseHref =
+    ingressPath && ingressPath !== "/"
+      ? `${ingressPath.replace(/\/$/, "")}/`
+      : "/";
+
   return (
     <html lang="en" className="h-full">
+      <head>
+        <base href={baseHref} />
+      </head>
       <body className="h-full bg-[#111111] text-slate-100 antialiased">
         <div className="min-h-full bg-[#111111]">{children}</div>
       </body>
