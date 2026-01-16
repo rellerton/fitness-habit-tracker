@@ -1,5 +1,5 @@
 name: "Fitness Habit Tracker"
-version: "v1.1.2"
+version: "v1.1.3"
 slug: "fitness_habit_tracker"
 description: "A simple habit tracker (Next.js + Prisma + SQLite) packaged as a Home Assistant add-on."
 url: "https://github.com/rellerton/fitness-habit-tracker"
@@ -18,6 +18,11 @@ ingress_port: 3000
 panel_icon: mdi:checkbox-marked-circle-outline
 panel_title: "Habit Tracker"
 panel_admin: false
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: "Fitness Habit Tracker (direct)"
+webui: "http://[HOST]:[PORT:3000]"
 
 map:
   - type: data
