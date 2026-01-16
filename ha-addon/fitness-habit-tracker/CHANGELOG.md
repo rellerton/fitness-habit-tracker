@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.8
+
+- Detect ingress prefix for HA sidebar and `/hassio/ingress` URL formats.
+- Keep nested `/_next` normalization while removing the problematic `./_next` rewrite.
+
 ## v1.1.7
 
 - Fix ingress asset routing for nested pages by normalizing `/_next` requests.
