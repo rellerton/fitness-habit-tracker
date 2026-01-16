@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.6
+
+- Fix ingress prefix initialization so links/rendered routes are correct on first paint.
+- Home links now force full navigation with trailing slash to avoid 404s in ingress.
+
 ## v1.1.5
 
 - Ingress detection updated to support HA sidebar URL format and reduce route flakiness.

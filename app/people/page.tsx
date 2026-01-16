@@ -8,6 +8,10 @@ type Person = { id: string; name: string };
 
 export default function PeoplePage() {
   const ingressPrefix = useIngressPrefix();
+  const homeHref = (() => {
+    const href = joinIngressPath(ingressPrefix, "/");
+    return href.endsWith("/") ? href : `${href}/`;
+  })();
 
   const [people, setPeople] = useState<Person[]>([]);
 
@@ -40,12 +44,12 @@ export default function PeoplePage() {
           >
             Admin
           </Link>
-          <Link
-            href={joinIngressPath(ingressPrefix, "/")}
+          <a
+            href={homeHref}
             className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
-          </Link>
+          </a>
         </div>
       </div>
 

@@ -33,7 +33,9 @@ export function apiUrl(path: string) {
 }
 
 export function useIngressPrefix() {
-  const [prefix, setPrefix] = useState(() => getIngressPrefix());
+  const [prefix, setPrefix] = useState(() =>
+    typeof window === "undefined" ? "" : getIngressPrefix()
+  );
 
   useEffect(() => {
     setPrefix(getIngressPrefix());

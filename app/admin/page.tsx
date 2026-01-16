@@ -19,6 +19,10 @@ type RoundHistoryItem = {
 
 export default function AdminPage() {
   const ingressPrefix = useIngressPrefix();
+  const homeHref = (() => {
+    const href = joinIngressPath(ingressPrefix, "/");
+    return href.endsWith("/") ? href : `${href}/`;
+  })();
 
   const [people, setPeople] = useState<Person[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
@@ -228,12 +232,12 @@ export default function AdminPage() {
           >
             People
           </Link>
-          <Link
-            href={joinIngressPath(ingressPrefix, "/")}
+          <a
+            href={homeHref}
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             Home
-          </Link>
+          </a>
         </div>
       </div>
 
