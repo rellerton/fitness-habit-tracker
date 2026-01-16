@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.7
+
+- Fix ingress asset routing for nested pages by normalizing `/_next` requests.
+- Rewrite relative `./_next` asset URLs to the ingress prefix to prevent chunk 404s.
+
 ## v1.1.6
 
 - Fix ingress prefix initialization so links/rendered routes are correct on first paint.
