@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 
 function getIngressPrefixFromPath(pathname: string) {
-  const match = pathname.match(/^\/api\/hassio_ingress\/[^/]+/);
-  return match ? match[0] : "";
+  const patterns = [
+    /^\/api\/hassio_ingress\/[^/]+/,
+    /^\/hassio\/ingress\/[^/]+/,
+    /^\/[a-f0-9]+_[^/]+\/ingress/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pathname.match(pattern);
+    if (match) return match[0];
+  }
+
+  return "";
 }
 
 export function getIngressPrefix() {
@@ -23,7 +33,7 @@ export function apiUrl(path: string) {
 }
 
 export function useIngressPrefix() {
-  const [prefix, setPrefix] = useState("");
+  const [prefix, setPrefix] = useState(() => getIngressPrefix());
 
   useEffect(() => {
     setPrefix(getIngressPrefix());
