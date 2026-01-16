@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.9
+
+- Limit ingress sub_filter rewrites to HTML to avoid client-side routing issues.
+- Rewrite relative `./_next` URLs in HTML so direct access loads assets correctly.
+
 ## v1.1.8
 
 - Detect ingress prefix for HA sidebar and `/hassio/ingress` URL formats.
