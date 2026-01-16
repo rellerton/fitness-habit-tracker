@@ -45,6 +45,8 @@ if [[ ! -f "${NGINX_CONF}" ]]; then
 fi
 
 echo "==> nginx -t"
+echo "==> dumping nginx conf"
+nl -ba /etc/nginx/http.d/default.conf | sed -n '1,200p'
 nginx -t
 
 echo "==> starting Next.js on :3001"
