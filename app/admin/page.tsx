@@ -52,8 +52,8 @@ export default function AdminPage() {
 
   async function refresh() {
     const [p, c] = await Promise.all([
-      fetchJson("api/people"),
-      fetchJson("api/categories"),
+      fetchJson("/api/people"),
+      fetchJson("/api/categories"),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
@@ -75,7 +75,7 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson("api/people", {
+      await fetchJson("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -96,7 +96,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson("api/categories", {
+      await fetchJson("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -114,7 +114,7 @@ export default function AdminPage() {
   async function reorderCategory(categoryId: string, direction: "up" | "down") {
     setBusy("category");
     try {
-      await fetchJson("api/categories/reorder", {
+      await fetchJson("/api/categories/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
@@ -138,7 +138,7 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`/api/categories/${deleteCatTarget.id}`, { method: "DELETE" });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       await refresh();
@@ -162,7 +162,7 @@ export default function AdminPage() {
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`api/people/${personId}/rounds`);
+      const data = await fetchJson(`/api/people/${personId}/rounds`);
 
       if (!Array.isArray(data)) {
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
@@ -193,9 +193,9 @@ export default function AdminPage() {
 
     setBusy("person");
     try {
-      await fetchJson(`api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
+      await fetchJson(`/api/rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data2 = await fetchJson(`api/people/${deleteRoundTarget.personId}/rounds`);
+      const data2 = await fetchJson(`/api/people/${deleteRoundTarget.personId}/rounds`);
       if (Array.isArray(data2)) {
         setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
       }
