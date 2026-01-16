@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.17
+
+- Add conditional `./_next` rewrite for direct access without affecting ingress.
+
 ## v1.1.16
 
 - Revert to the v1.1.8 ingress-stable configuration and remove base href injection.
