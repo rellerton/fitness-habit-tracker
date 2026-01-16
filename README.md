@@ -1,24 +1,48 @@
 # Fitness Habit Tracker
 
-A lightweight, self-hosted habit tracker built with **Next.js** + **Prisma** using a **local SQLite** database. Designed to run cleanly in Docker (including Synology Container Manager) with the database stored on a persistent volume.
+A lightweight, self-hosted habit tracker built with Next.js and Prisma using a local SQLite database. Runs as a Home Assistant add-on (Ingress) or as a standard Docker container.
 
-## What this is
+## What it does
 
-- Track habits by **person**
-- Habits are grouped into **categories**
-- Tracking happens inside **Rounds** (multi-week blocks)
-- A visual **Round Wheel** UI makes daily checkoffs fast
+- Track habits by person and category
+- Organize tracking into multi-week rounds
+- Visual Round Wheel for fast daily checkoffs
 
-## Tech stack
+## Install in Home Assistant (Ingress)
 
-- Next.js (App Router)
-- Prisma ORM
-- SQLite (file-based DB)
-- Docker / GHCR image publishing via GitHub Actions
+1. Open Home Assistant and go to Settings -> Add-ons -> Add-on Store.
+2. Open the menu (top right) -> Repositories -> add:
+   `https://github.com/rellerton/fitness-habit-tracker/`
+3. Find "Fitness Habit Tracker" in the add-on store and click Install.
+4. Start the add-on.
+5. Open it from the add-on page or the sidebar (Ingress).
 
----
+Data is stored under `/data` in Home Assistant. The default database is:
+- `database_url`: `file:/data/dev.db`
 
-## Quick start (Docker)
+### Direct access (optional)
+
+The Add On is configured to expose a port for direct access. You can open it directly:
+- `http://<HA_HOST>:3000/`
+
+This is useful for iframe dashboards where ingress tokens change.
+
+## How to use
+
+1. Open **Admin** to add people and categories.
+2. Go to **People**, then select a person.
+3. Start a new round to begin tracking.
+
+### Dashboard-friendly view
+
+To show just a person's current round without the control header, open the person page
+and add `?controls=0`:
+
+```
+http://<host>/people/<personId>?controls=0
+```
+
+## Install with Docker
 
 ### 1) Create a data directory on the host
 
@@ -27,18 +51,14 @@ This is where the SQLite DB lives (persisted across container rebuilds).
 Example (Synology):
 - `/volume1/docker/fitness-habit-tracker/data`
 
-The container expects:
-- DB path inside container: `/app/data/dev.db`
-- Connection string: `DATABASE_URL=file:/app/data/dev.db`
-
 ### 2) Run with docker compose
 
-Create `docker-compose.yaml` (or use the one in this repo and adjust paths/tags):
+Create `docker-compose.yaml`:
 
 ```yaml
 services:
   fitness-habit-tracker:
-    image: ghcr.io/rellerton/fitness-habit-tracker:v1.0.1
+    image: ghcr.io/rellerton/fitness-habit-tracker:latest
     container_name: fitness-habit-tracker
     restart: unless-stopped
     ports:
@@ -48,3 +68,24 @@ services:
       DATABASE_URL: file:/app/data/dev.db
     volumes:
       - /volume1/docker/fitness-habit-tracker/data:/app/data
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+Open the app at `http://<host>:3010`.
+
+## Updating
+
+- Home Assistant: update the add-on from the add-on store.
+- Docker: pull the new image and recreate the container.
+
+## Tech stack
+
+- Next.js (App Router)
+- Prisma ORM
+- SQLite
+- Docker / GHCR image publishing via GitHub Actions
