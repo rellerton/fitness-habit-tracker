@@ -13,8 +13,9 @@ export const metadata: Metadata = {
   description: "Cricular Grid Style Fitness Tracker",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const ingressPath = headers().get("x-ingress-path") ?? "";
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const ingressHeaders = await headers();
+  const ingressPath = ingressHeaders.get("x-ingress-path") ?? "";
   const baseHref =
     ingressPath && ingressPath !== "/"
       ? `${ingressPath.replace(/\/$/, "")}/`

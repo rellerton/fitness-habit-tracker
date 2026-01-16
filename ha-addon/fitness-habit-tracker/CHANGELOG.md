@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v1.1.15
+
+- Fix layout header access for Next async headers API.
+
 ## v1.1.14
 
 - Force dynamic rendering for layout to allow ingress header inspection.
