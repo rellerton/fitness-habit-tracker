@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.16
+
+- Revert to the v1.1.8 ingress-stable configuration and remove base href injection.
 
 ## v1.1.15
 
