@@ -12,6 +12,7 @@ COPY . /app
 # Install + build
 RUN npm ci
 RUN npx prisma generate
+ENV NEXT_PUBLIC_ASSET_PREFIX=.
 RUN npm run build
 
 # Nginx config (for ingress path)
