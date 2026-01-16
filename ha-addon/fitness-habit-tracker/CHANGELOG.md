@@ -1,6 +1,11 @@
 # Changelog
 
 
+## v1.1.11
+
+- Remove `NEXT_PUBLIC_ASSET_PREFIX` so direct access uses absolute `/_next` assets.
+- Keep ingress rewrites intact to preserve sidebar/Open Web UI routing.
+
 ## v1.1.10
 
 - Revert Previous Changes

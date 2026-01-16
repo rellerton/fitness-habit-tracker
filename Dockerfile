@@ -17,7 +17,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Ensure prisma client + next build
-ENV NEXT_PUBLIC_ASSET_PREFIX=.
 RUN npx prisma generate
 RUN npm run build
 
