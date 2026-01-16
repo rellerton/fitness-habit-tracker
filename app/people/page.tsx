@@ -52,7 +52,7 @@ export default function PeoplePage() {
           {people.map((p) => (
             <li key={p.id}>
               <Link
-                href={`/people/${p.id}`}
+                href={`people/${p.id}`}
                 className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 hover:bg-white/5"
               >
                 <span className="font-medium text-slate-100 group-hover:text-white">

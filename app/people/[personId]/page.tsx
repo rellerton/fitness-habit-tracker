@@ -137,7 +137,7 @@ export default function PersonPage() {
   async function loadPerson() {
     if (!personId) return;
 
-    const res = await fetch(`/api/people/${personId}`);
+    const res = await fetch(`api/people/${personId}`);
     const data = await res.json().catch(() => null);
 
     if (res.ok && data?.id) {
@@ -152,7 +152,7 @@ export default function PersonPage() {
   async function loadLatestRound() {
     if (!personId) return;
 
-    const res = await fetch(`/api/people/${personId}/latest-round`);
+    const res = await fetch(`api/people/${personId}/latest-round`);
     const data = (await res.json().catch(() => null)) as LatestRoundResponse | null;
 
     if (!res.ok) {
@@ -168,7 +168,7 @@ export default function PersonPage() {
     if (!personId) return;
 
     setHistoryLoading(true);
-    const res = await fetch(`/api/people/${personId}/rounds`);
+    const res = await fetch(`api/people/${personId}/rounds`);
     const data = (await res.json().catch(() => null)) as RoundHistoryItem[] | null;
 
     if (!res.ok || !Array.isArray(data)) {
@@ -272,7 +272,7 @@ export default function PersonPage() {
 
     setLoading(true);
 
-    const res = await fetch(`/api/rounds/${deleteTarget.id}`, { method: "DELETE" });
+    const res = await fetch(`api/rounds/${deleteTarget.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
