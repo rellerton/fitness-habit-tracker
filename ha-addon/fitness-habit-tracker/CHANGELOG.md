@@ -1,5 +1,10 @@
 # Changelog
 
+
+## v1.1.10
+
+- Revert Previous Changes
+
 ## v1.1.9
 
 - Limit ingress sub_filter rewrites to HTML to avoid client-side routing issues.
