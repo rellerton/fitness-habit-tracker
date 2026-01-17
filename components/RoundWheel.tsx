@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Category = { categoryId: string; displayName: string };
 
@@ -38,6 +38,12 @@ function parseLocalDay(s: string) {
 
 function formatMMDD(yyyyMMdd: string) {
   return `${yyyyMMdd.slice(5, 7)}/${yyyyMMdd.slice(8, 10)}`;
+}
+
+function formatWeekdayShort(yyyyMMdd: string) {
+  const d = parseLocalDay(yyyyMMdd);
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return labels[d.getDay()];
 }
 
 function polar(cx: number, cy: number, r: number, angleRad: number) {
@@ -90,6 +96,22 @@ function statusGlyph(status: string) {
       return "S";
     default:
       return "";
+  }
+}
+
+function statusButtonClass(status: string) {
+  switch (status) {
+    case "DONE":
+      return "bg-emerald-500/70 text-white";
+    case "HALF":
+      return "bg-emerald-500/40 text-white";
+    case "OFF":
+      return "bg-rose-500/70 text-white";
+    case "SICK":
+    case "TREAT":
+      return "bg-orange-400/70 text-white";
+    default:
+      return "bg-white/5 text-slate-200";
   }
 }
 
@@ -158,6 +180,9 @@ export default function RoundWheel({
   onCellClick,
   size = 640,
 }: Props) {
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [zoomTarget, setZoomTarget] = useState<{ weekIdx: number } | null>(null);
+
   const totalDays = lengthWeeks * 7;
   const labelDays = 7;
 
@@ -169,6 +194,23 @@ export default function RoundWheel({
       return formatDate(d);
     });
   }, [startDate, totalDays]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsSmallScreen(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!isSmallScreen) setZoomTarget(null);
+  }, [isSmallScreen]);
 
 
   const entryMap = useMemo(() => {
@@ -216,6 +258,11 @@ export default function RoundWheel({
   // Today highlight style
   const TODAY_STROKE = "rgba(250,204,21,0.95)"; // amber/yellow
   const TODAY_GLOW = "rgba(250,204,21,0.25)";
+
+  const zoomWeekDays = zoomTarget
+    ? days.slice(zoomTarget.weekIdx * 7, zoomTarget.weekIdx * 7 + 7)
+    : [];
+  const zoomWeekLabel = zoomTarget ? `Week ${zoomTarget.weekIdx + 1}` : "";
 
   return (
     <div className="w-full">
@@ -459,7 +506,13 @@ export default function RoundWheel({
                     stroke="rgba(255,255,255,0.10)"
                     strokeWidth={1}
                     className="cursor-pointer transition-opacity hover:opacity-95"
-                    onClick={() => onCellClick(roundId, cat.categoryId, day)}
+                    onClick={() => {
+                      if (isSmallScreen) {
+                        setZoomTarget({ weekIdx: Math.floor(dayIdx / 7) });
+                        return;
+                      }
+                      onCellClick(roundId, cat.categoryId, day);
+                    }}
                   >
                     <title>
                       {cat.displayName} • {day} • {status}
@@ -594,6 +647,75 @@ export default function RoundWheel({
 
         </svg>
       </div>
+
+      {isSmallScreen && zoomTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setZoomTarget(null)}
+          />
+          <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-950/95 p-5 shadow-2xl backdrop-blur">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  {zoomWeekLabel}
+                </p>
+                {zoomWeekDays.length > 0 && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    {formatMMDD(zoomWeekDays[0])} -{" "}
+                    {formatMMDD(zoomWeekDays[zoomWeekDays.length - 1])}
+                  </p>
+                )}
+              </div>
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200"
+                onClick={() => setZoomTarget(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm text-slate-300">
+              Tap a day to cycle its status.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              {categories.map((cat, ringIdx) => (
+                <div key={`zoom-cat-${cat.categoryId}`} className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: rgba(ringRGB(ringIdx), 0.85) }}
+                    />
+                    <span>{cat.displayName}</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {zoomWeekDays.map((day) => {
+                      const status = entryMap.get(`${cat.categoryId}|${day}`) ?? "EMPTY";
+                      const glyph = statusGlyph(status) || "-";
+                      return (
+                        <button
+                          key={`zoom-${cat.categoryId}-${day}`}
+                          className={`flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 px-2 py-2 text-[10px] font-semibold ${statusButtonClass(
+                            status
+                          )}`}
+                          onClick={() => onCellClick(roundId, cat.categoryId, day)}
+                        >
+                          <span className="uppercase text-white/80">
+                            {formatWeekdayShort(day)}
+                          </span>
+                          <span className="text-base font-black">{glyph}</span>
+                          <span className="text-white/70">{formatMMDD(day)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

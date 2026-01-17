@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.18
+
+- Mobile round wheel: tap to open a week overlay with all categories and weekday labels.
+- Overlay now centers on screen and scrolls within a capped height for phones.
+
 ## v1.1.17
 
 - Add conditional `./_next` rewrite for direct access without affecting ingress.
