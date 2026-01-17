@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.19
+
+- Person page: add "Edit Start Date" modal that shifts all entries in the active round.
+- Add-on: custom store icon (`logo.png`) replaces the default puzzle piece.
+
 ## v1.1.18
 
 - Mobile round wheel: tap to open a week overlay with all categories and weekday labels.

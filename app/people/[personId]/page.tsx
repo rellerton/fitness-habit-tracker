@@ -186,10 +186,18 @@ export default function PersonPage() {
   // New round confirmation modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [startDateInput, setStartDateInput] = useState<string>(() => yyyyMmDd(new Date()));
+  const [editStartOpen, setEditStartOpen] = useState(false);
+  const [editStartDateInput, setEditStartDateInput] = useState<string>("");
 
   function openNewRoundPrompt() {
     setStartDateInput(yyyyMmDd(new Date()));
     setConfirmOpen(true);
+  }
+
+  function openEditStartPrompt() {
+    if (!round) return;
+    setEditStartDateInput(round.startDate);
+    setEditStartOpen(true);
   }
 
   async function confirmStartRound() {
@@ -218,6 +226,36 @@ export default function PersonPage() {
     }
 
     setConfirmOpen(false);
+    await Promise.all([loadLatestRound(), loadRoundHistory()]);
+    setLoading(false);
+  }
+
+  async function confirmEditStartDate() {
+    if (!round) return;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editStartDateInput)) {
+      alert("Please pick a valid start date.");
+      return;
+    }
+
+    setLoading(true);
+
+    const res = await fetch(apiUrl(`rounds/${round.id}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate: editStartDateInput }),
+    });
+
+    const updated = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("Update start date failed:", updated);
+      alert(`Update failed: ${updated?.error ?? "Unknown error"}`);
+      setLoading(false);
+      return;
+    }
+
+    setEditStartOpen(false);
     await Promise.all([loadLatestRound(), loadRoundHistory()]);
     setLoading(false);
   }
@@ -412,6 +450,17 @@ export default function PersonPage() {
             >
               ← People
             </Link>
+          )}
+
+          {!hideControls && (
+            <button
+              onClick={openEditStartPrompt}
+              disabled={loading}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Edit the start date (shifts all entries)"
+            >
+              Edit Start Date
+            </button>
           )}
 
           <button
@@ -651,6 +700,47 @@ export default function PersonPage() {
                 disabled={loading}
               >
                 {loading ? "Starting..." : "Start round"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editStartOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => !loading && setEditStartOpen(false)}
+          />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">Edit round start date</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              This shifts every entry in the round by the same number of days.
+            </p>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Start date</label>
+              <input
+                type="date"
+                value={editStartDateInput}
+                onChange={(e) => setEditStartDateInput(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setEditStartOpen(false)}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                onClick={confirmEditStartDate}
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
