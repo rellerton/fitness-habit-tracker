@@ -2,7 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-type Category = { categoryId: string; displayName: string };
+type Category = {
+  categoryId: string;
+  displayName: string;
+  allowDaysOffPerWeek?: number;
+};
 
 export type RoundWheelEntry = {
   categoryId: string;
@@ -115,6 +119,17 @@ function statusButtonClass(status: string) {
   }
 }
 
+function statusScore(status: string) {
+  const st = (status ?? "").toUpperCase();
+  if (st === "DONE") return 1;
+  if (st === "HALF") return 0.5;
+  return 0;
+}
+
+function requiredDaysForWeek(allowDaysOffPerWeek: number) {
+  return Math.max(0, 7 - allowDaysOffPerWeek);
+}
+
 /**
  * Ring palette: cohesive with dark slate UI.
  * Status colors override when needed (DONE/SICK/TREAT).
@@ -182,6 +197,8 @@ export default function RoundWheel({
 }: Props) {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [zoomTarget, setZoomTarget] = useState<{ weekIdx: number } | null>(null);
+  const [hoverWeekIdx, setHoverWeekIdx] = useState<number | null>(null);
+  const [pinnedWeekIdx, setPinnedWeekIdx] = useState<number | null>(null);
 
   const totalDays = lengthWeeks * 7;
   const labelDays = 7;
@@ -212,6 +229,15 @@ export default function RoundWheel({
     if (!isSmallScreen) setZoomTarget(null);
   }, [isSmallScreen]);
 
+  useEffect(() => {
+    if (pinnedWeekIdx !== null && pinnedWeekIdx >= lengthWeeks) {
+      setPinnedWeekIdx(null);
+    }
+    if (hoverWeekIdx !== null && hoverWeekIdx >= lengthWeeks) {
+      setHoverWeekIdx(null);
+    }
+  }, [lengthWeeks, pinnedWeekIdx, hoverWeekIdx]);
+
 
   const entryMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -225,6 +251,39 @@ export default function RoundWheel({
     const idx = days.indexOf(todayKey);
     return idx >= 0 ? idx : -1;
   }, [days, todayKey]);
+
+  const weekPercentByCategory = useMemo(() => {
+    const m = new Map<string, number[]>();
+    const weeks = Math.max(0, lengthWeeks);
+
+    for (const cat of categories) {
+      const allowDaysOff = cat.allowDaysOffPerWeek ?? 0;
+      const required = requiredDaysForWeek(allowDaysOff);
+      const perWeek: number[] = [];
+
+      for (let w = 0; w < weeks; w += 1) {
+        if (required <= 0) {
+          perWeek.push(1);
+          continue;
+        }
+
+        const startIdx = w * 7;
+        const weekDays = days.slice(startIdx, startIdx + 7);
+        let score = 0;
+        for (const day of weekDays) {
+          const status = entryMap.get(`${cat.categoryId}|${day}`) ?? "EMPTY";
+          score += statusScore(status);
+        }
+
+        const pct = Math.min(score, required) / required;
+        perWeek.push(Math.max(0, Math.min(1, pct)));
+      }
+
+      m.set(cat.categoryId, perWeek);
+    }
+
+    return m;
+  }, [categories, days, entryMap, lengthWeeks]);
 
   const view = 500;
   const cx = view / 2;
@@ -263,10 +322,41 @@ export default function RoundWheel({
     ? days.slice(zoomTarget.weekIdx * 7, zoomTarget.weekIdx * 7 + 7)
     : [];
   const zoomWeekLabel = zoomTarget ? `Week ${zoomTarget.weekIdx + 1}` : "";
+  const tooltipWeekIdx = pinnedWeekIdx ?? hoverWeekIdx;
+
+  function getWeekPercent(weekIdx: number, cat: Category) {
+    const cached = weekPercentByCategory.get(cat.categoryId);
+    if (cached && cached[weekIdx] !== undefined) {
+      return cached[weekIdx];
+    }
+
+    const startIdx = weekIdx * 7;
+    const weekDays = days.slice(startIdx, startIdx + 7);
+    const allowDaysOff = cat.allowDaysOffPerWeek ?? 0;
+    const required = requiredDaysForWeek(allowDaysOff);
+    if (required <= 0) return 1;
+
+    let score = 0;
+    for (const day of weekDays) {
+      const status = entryMap.get(`${cat.categoryId}|${day}`) ?? "EMPTY";
+      score += statusScore(status);
+    }
+
+    return Math.max(0, Math.min(1, Math.min(score, required) / required));
+  }
+
+  const tooltipPos =
+    tooltipWeekIdx !== null
+      ? (() => {
+          const midDay = labelDays + tooltipWeekIdx * 7 + 3.5;
+          const angle = rotation + midDay * step;
+          return polar(cx, cy, weekR, angle);
+        })()
+      : null;
 
   return (
     <div className="w-full">
-      <div className="mx-auto w-full max-w-[900px]">
+      <div className="relative mx-auto w-full max-w-[900px]">
         <svg
           width={size}
           height={size}
@@ -285,7 +375,7 @@ export default function RoundWheel({
             cx={cx}
             cy={cy}
             r={gridOuter}
-            fill="rgba(2,6,23,0.10)"
+            fill="rgba(17,17,17,0.10)"
             stroke="rgba(255,255,255,0.10)"
           />
 
@@ -361,7 +451,16 @@ export default function RoundWheel({
                 fontSize={10.5}
                 fill="rgba(148,163,184,0.95)"
                 style={{ fontWeight: 700, letterSpacing: 0.2 }}
+                className="cursor-pointer"
                 transform={`rotate(${deg} ${pos.x} ${pos.y})`}
+                onMouseEnter={() => setHoverWeekIdx(w)}
+                onMouseLeave={() => {
+                  if (pinnedWeekIdx === null) setHoverWeekIdx(null);
+                }}
+                onClick={() => {
+                  setPinnedWeekIdx((prev) => (prev === w ? null : w));
+                  setHoverWeekIdx(w);
+                }}
               >
                 Week {w + 1}
               </text>
@@ -470,6 +569,34 @@ export default function RoundWheel({
               </g>
             );
           })()}
+
+          {/* Progress dashes (per category, per week) */}
+          {categories.map((cat, ringIdx) => {
+            const perWeek = weekPercentByCategory.get(cat.categoryId) ?? [];
+            return Array.from({ length: lengthWeeks }, (_, w) => {
+              const pct = Math.max(0, Math.min(1, perWeek[w] ?? 0));
+              if (pct <= 0) return null;
+
+              const weekStartIdx = w * 7;
+              const a0 = rotation + (labelDays + weekStartIdx) * step;
+              const weekArc = step * 7;
+              const a1 = a0 + weekArc * pct;
+              const rOuter = gridOuter - ringIdx * ringThickness;
+              const rDash = rOuter - 1.2;
+
+              return (
+                <path
+                  key={`week-dash-${cat.categoryId}-${w}`}
+                  d={arcPath(cx, cy, rDash, a0, a1)}
+                  stroke={rgba(ringRGB(ringIdx), 0.55)}
+                  strokeWidth={1.6}
+                  fill="none"
+                  strokeLinecap="round"
+                  pointerEvents="none"
+                />
+              );
+            });
+          })}
 
           {/* Grid cells */}
           {categories.map((cat, ringIdx) => {
@@ -613,7 +740,7 @@ export default function RoundWheel({
           </g>
 
           {/* Center */}
-          <circle cx={cx} cy={cy} r={innerBase - 6} fill="rgba(2,6,23,0.80)" />
+          <circle cx={cx} cy={cy} r={innerBase - 6} fill="rgba(17,17,17,0.90)" />
           <circle
             cx={cx}
             cy={cy}
@@ -646,6 +773,47 @@ export default function RoundWheel({
           </text>
 
         </svg>
+        {tooltipPos && tooltipWeekIdx !== null && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full"
+            style={{
+              left: `${(tooltipPos.x / view) * 100}%`,
+              top: `${(tooltipPos.y / view) * 100}%`,
+            }}
+          >
+            <div className="min-w-[190px] rounded-xl border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl backdrop-blur">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                Week {tooltipWeekIdx + 1}
+              </div>
+              <div className="mt-2 space-y-2">
+                {categories.map((cat, ringIdx) => {
+                  const pct = Math.round(getWeekPercent(tooltipWeekIdx, cat) * 100);
+                  return (
+                    <div key={`week-tip-${cat.categoryId}`} className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: rgba(ringRGB(ringIdx), 0.85) }}
+                      />
+                      <span className="flex-1 text-xs text-slate-200">{cat.displayName}</span>
+                      <div className="h-1.5 w-16 rounded-full bg-white/10">
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: rgba(ringRGB(ringIdx), 0.85),
+                          }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-[10px] text-slate-300">
+                        {pct}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isSmallScreen && zoomTarget && (
@@ -654,7 +822,7 @@ export default function RoundWheel({
             className="absolute inset-0 bg-black/70"
             onClick={() => setZoomTarget(null)}
           />
-          <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-950/95 p-5 shadow-2xl backdrop-blur">
+          <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#111111]/95 p-5 shadow-2xl backdrop-blur">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-400">

@@ -19,13 +19,23 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const personId = body?.personId as string | undefined;
   const startDateStr = body?.startDate as string | undefined;
+  const lengthWeeksInput = body?.lengthWeeks as number | string | undefined;
 
   if (!personId) {
     return NextResponse.json({ error: "personId required" }, { status: 400 });
   }
 
-  const settings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
-  const lengthWeeks = settings?.roundLengthWeeks ?? 8;
+  let lengthWeeks = 8;
+  if (lengthWeeksInput !== undefined) {
+    const parsed = typeof lengthWeeksInput === "string" ? Number(lengthWeeksInput) : lengthWeeksInput;
+    if (!Number.isFinite(parsed) || (parsed !== 4 && parsed !== 8)) {
+      return NextResponse.json(
+        { error: "lengthWeeks must be 4 or 8" },
+        { status: 400 }
+      );
+    }
+    lengthWeeks = parsed;
+  }
 
   let startDate: Date;
   if (startDateStr) {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
-type Category = { id: string; name: string; sortOrder: number };
+type Category = { id: string; name: string; sortOrder: number; allowDaysOffPerWeek: number };
 
 type RoundHistoryItem = {
   id: string;
@@ -16,6 +16,8 @@ type RoundHistoryItem = {
   roundCategories: { categoryId: string; displayName: string }[];
   entries: { categoryId: string; date: string; status: string }[];
 };
+
+const MAX_ACTIVE_CATEGORIES = 5;
 
 export default function AdminPage() {
   const ingressPrefix = useIngressPrefix();
@@ -28,6 +30,7 @@ export default function AdminPage() {
   const [cats, setCats] = useState<Category[]>([]);
   const [personName, setPersonName] = useState("");
   const [catName, setCatName] = useState("");
+  const [catDaysOff, setCatDaysOff] = useState<number>(0);
   const [busy, setBusy] = useState<"person" | "category" | null>(null);
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
@@ -44,9 +47,16 @@ export default function AdminPage() {
 
   const [deleteCatOpen, setDeleteCatOpen] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string } | null>(null);
+  const [editCatOpen, setEditCatOpen] = useState(false);
+  const [editCatTarget, setEditCatTarget] = useState<{ id: string; name: string } | null>(null);
+  const [editCatName, setEditCatName] = useState("");
+  const [editCatDaysOff, setEditCatDaysOff] = useState<number>(0);
 
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
-  const canAddCategory = useMemo(() => catName.trim().length > 0, [catName]);
+  const canAddCategory = useMemo(
+    () => catName.trim().length > 0 && cats.length < MAX_ACTIVE_CATEGORIES,
+    [catName, cats.length]
+  );
 
   async function fetchJson(path: string, options: RequestInit = {}) {
     const res = await fetch(apiUrl(path), options);
@@ -100,15 +110,24 @@ export default function AdminPage() {
   async function addCategory() {
     const name = catName.trim();
     if (!name) return;
+    if (cats.length >= MAX_ACTIVE_CATEGORIES) {
+      alert(`Max ${MAX_ACTIVE_CATEGORIES} categories reached.`);
+      return;
+    }
+    if (catDaysOff < 0 || catDaysOff > 5) {
+      alert("Days off per week must be 0-5.");
+      return;
+    }
 
     setBusy("category");
     try {
       await fetchJson("categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, allowDaysOffPerWeek: catDaysOff }),
       });
       setCatName("");
+      setCatDaysOff(0);
       await refresh();
     } catch (e) {
       console.error(e);
@@ -138,6 +157,44 @@ export default function AdminPage() {
   function openDeleteCategory(id: string, name: string) {
     setDeleteCatTarget({ id, name });
     setDeleteCatOpen(true);
+  }
+
+  function openEditCategory(id: string, name: string, daysOff: number) {
+    setEditCatTarget({ id, name });
+    setEditCatName(name);
+    setEditCatDaysOff(daysOff);
+    setEditCatOpen(true);
+  }
+
+  async function confirmEditCategory() {
+    if (!editCatTarget) return;
+
+    const name = editCatName.trim();
+    if (!name) {
+      alert("Category name is required.");
+      return;
+    }
+    if (editCatDaysOff < 0 || editCatDaysOff > 5) {
+      alert("Days off per week must be 0-5.");
+      return;
+    }
+
+    setBusy("category");
+    try {
+      await fetchJson(`categories/${editCatTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, allowDaysOffPerWeek: editCatDaysOff }),
+      });
+      setEditCatOpen(false);
+      setEditCatTarget(null);
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Update failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function confirmDeleteCategory() {
@@ -245,14 +302,14 @@ export default function AdminPage() {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-100">People</h2>
-            <span className="rounded-full border border-white/10 bg-slate-950/30 px-2.5 py-1 text-xs text-slate-300">
+            <span className="rounded-full border border-white/10 bg-[#111111]/30 px-2.5 py-1 text-xs text-slate-300">
               {people.length} total
             </span>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
               value={personName}
               onChange={(e) => setPersonName(e.target.value)}
               onKeyDown={(e) => {
@@ -270,7 +327,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-slate-950/20">
+          <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#111111]/20">
             <ul className="divide-y divide-white/10">
               {people.map((p) => {
                 const expanded = expandedPersonId === p.id;
@@ -288,7 +345,7 @@ export default function AdminPage() {
                     </button>
 
                     {expanded && (
-                      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/25 p-3">
+                      <div className="mt-3 rounded-xl border border-white/10 bg-[#111111]/25 p-3">
                         {isLoading ? (
                           <div className="text-sm text-slate-400">Loading rounds…</div>
                         ) : rounds.length === 0 ? (
@@ -345,14 +402,14 @@ export default function AdminPage() {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-100">Categories</h2>
-            <span className="rounded-full border border-white/10 bg-slate-950/30 px-2.5 py-1 text-xs text-slate-300">
+            <span className="rounded-full border border-white/10 bg-[#111111]/30 px-2.5 py-1 text-xs text-slate-300">
               {cats.length} total
             </span>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
               onKeyDown={(e) => {
@@ -360,6 +417,19 @@ export default function AdminPage() {
               }}
               placeholder="Category (e.g., Cardio)"
             />
+            <select
+              className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
+              value={catDaysOff}
+              onChange={(e) => setCatDaysOff(Number(e.target.value))}
+              style={{ colorScheme: "dark" }}
+            >
+              <option className="bg-[#111111] text-slate-100" value={0}>0 days off/wk</option>
+              <option className="bg-[#111111] text-slate-100" value={1}>1 day off/wk</option>
+              <option className="bg-[#111111] text-slate-100" value={2}>2 days off/wk</option>
+              <option className="bg-[#111111] text-slate-100" value={3}>3 days off/wk</option>
+              <option className="bg-[#111111] text-slate-100" value={4}>4 days off/wk</option>
+              <option className="bg-[#111111] text-slate-100" value={5}>5 days off/wk</option>
+            </select>
 
             <button
               onClick={addCategory}
@@ -369,14 +439,20 @@ export default function AdminPage() {
               {busy === "category" ? "Adding..." : "Add"}
             </button>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Max {MAX_ACTIVE_CATEGORIES} categories. Delete one to add a new category.
+          </p>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-slate-950/20">
+          <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#111111]/20">
             <ul className="divide-y divide-white/10">
               {cats.map((c, idx) => (
                 <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="font-medium text-slate-100 truncate">{c.name}</div>
                     <div className="text-xs text-slate-500">Sort: {c.sortOrder}</div>
+                    <div className="text-xs text-slate-500">
+                      Days off/week: {c.allowDaysOffPerWeek}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -388,7 +464,6 @@ export default function AdminPage() {
                     >
                       ↑
                     </button>
-
                     <button
                       onClick={() => reorderCategory(c.id, "down")}
                       disabled={idx === cats.length - 1 || busy !== null}
@@ -396,6 +471,22 @@ export default function AdminPage() {
                       title="Move down"
                     >
                       ↓
+                    </button>
+                    <button
+                      onClick={() => openEditCategory(c.id, c.name, c.allowDaysOffPerWeek)}
+                      disabled={busy !== null}
+                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                      title="Edit name"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => openDeleteCategory(c.id, c.name)}
+                      disabled={busy !== null}
+                      className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 disabled:opacity-50"
+                      title="Delete category"
+                    >
+                      Delete
                     </button>
                   </div>
                 </li>
@@ -412,7 +503,7 @@ export default function AdminPage() {
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteRoundOpen(false)} />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">
               Delete {deleteRoundTarget.personName} — Round {deleteRoundTarget.roundNumber}?
             </h3>
@@ -439,13 +530,68 @@ export default function AdminPage() {
         </div>
       )}
 
+      {editCatOpen && editCatTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setEditCatOpen(false)} />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">Edit category</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              This updates the category name for future rounds. Existing rounds keep their snapshot name.
+            </p>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Category name</label>
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400/60"
+                value={editCatName}
+                onChange={(e) => setEditCatName(e.target.value)}
+              />
+            </div>
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Days off per week</label>
+              <select
+                className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 outline-none focus:border-emerald-400/60"
+                value={editCatDaysOff}
+                onChange={(e) => setEditCatDaysOff(Number(e.target.value))}
+                style={{ colorScheme: "dark" }}
+              >
+                <option className="bg-[#111111] text-slate-100" value={0}>0 days off/wk</option>
+                <option className="bg-[#111111] text-slate-100" value={1}>1 day off/wk</option>
+                <option className="bg-[#111111] text-slate-100" value={2}>2 days off/wk</option>
+                <option className="bg-[#111111] text-slate-100" value={3}>3 days off/wk</option>
+                <option className="bg-[#111111] text-slate-100" value={4}>4 days off/wk</option>
+                <option className="bg-[#111111] text-slate-100" value={5}>5 days off/wk</option>
+              </select>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setEditCatOpen(false)}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+                onClick={confirmEditCategory}
+                disabled={busy !== null}
+              >
+                {busy === "category" ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteCatOpen && deleteCatTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteCatOpen(false)} />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
-            <h3 className="text-lg font-semibold text-slate-100">Delete category “{deleteCatTarget.name}”?</h3>
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">Delete category "{deleteCatTarget.name}"?</h3>
             <p className="mt-2 text-sm text-slate-300">
-              This removes the category from the master list. Existing rounds keep their snapshot categories.
+              This hides the category from new rounds. Existing rounds keep their snapshot categories.
             </p>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

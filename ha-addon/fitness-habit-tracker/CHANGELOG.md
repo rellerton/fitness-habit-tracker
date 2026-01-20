@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.0.0
+
+- Rounds: choose 4-week or 8-week length when starting a new round (default 8).
+- Person page: add “Edit Start Date” modal to shift all entries in the active round.
+- Categories: enforce max 5 active categories (UI + API) and show messaging when at limit.
+- Categories: add edit (rename) modal and soft-delete (inactive) behavior; re-adding a name reactivates it.
+- Categories: new `allowDaysOffPerWeek` setting (0–5) with admin UI + API validation.
+- Database: new Category column `allowDaysOffPerWeek` with default 0 via migration.
+- History table: % complete now accounts for allowed days off per week and caps at 100%.
+- RoundWheel: per-week progress dashes for all weeks, plus week label hover/tap tooltip with per-category mini bars.
+- Admin UI: dark-themed select styling for days-off dropdowns.
+- UI: align modal/admin/roundwheel surfaces with Home Assistant dark background.
+
 ## v1.1.19
 
 - Person page: add "Edit Start Date" modal that shifts all entries in the active round.

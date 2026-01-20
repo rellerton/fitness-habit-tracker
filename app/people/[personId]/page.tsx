@@ -10,7 +10,7 @@ import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
 
-type Category = { categoryId: string; displayName: string };
+type Category = { categoryId: string; displayName: string; allowDaysOffPerWeek?: number };
 
 type RoundPayload = {
   id: string;
@@ -54,10 +54,12 @@ function parseLocalDay(s: string) {
 
 
 
-function calcCategoryPercent(round: Pick<RoundHistoryItem, "lengthWeeks" | "entries">, categoryId: string) {
-  const totalDays = round.lengthWeeks * 7;
-  if (totalDays <= 0) return 0;
+function requiredDays(lengthWeeks: number, allowDaysOffPerWeek: number) {
+  const weeklyTarget = 7 - allowDaysOffPerWeek;
+  return Math.max(0, lengthWeeks * weeklyTarget);
+}
 
+function calcCategoryScore(round: Pick<RoundHistoryItem, "entries">, categoryId: string) {
   let score = 0;
   for (const e of round.entries) {
     if (e.categoryId !== categoryId) continue;
@@ -65,8 +67,20 @@ function calcCategoryPercent(round: Pick<RoundHistoryItem, "lengthWeeks" | "entr
     if (st === "DONE") score += 1;
     else if (st === "HALF") score += 0.5;
   }
+  return score;
+}
 
-  const pct = (score / totalDays) * 100;
+function calcCategoryPercent(
+  round: Pick<RoundHistoryItem, "lengthWeeks" | "entries">,
+  categoryId: string,
+  allowDaysOffPerWeek: number
+) {
+  const totalDays = requiredDays(round.lengthWeeks, allowDaysOffPerWeek);
+  if (totalDays <= 0) return 100;
+
+  const score = calcCategoryScore(round, categoryId);
+  const capped = Math.min(score, totalDays);
+  const pct = (capped / totalDays) * 100;
   return Math.max(0, Math.min(100, pct));
 }
 
@@ -86,19 +100,22 @@ function formatShort(d: Date) {
 function calcTotalPercent(
   r: Pick<RoundHistoryItem, "lengthWeeks" | "entries" | "roundCategories">
 ) {
-  const totalDays = r.lengthWeeks * 7;
-  const cats = r.roundCategories.length || 0;
-  if (totalDays <= 0 || cats <= 0) return 0;
+  if (r.roundCategories.length === 0) return 0;
 
-  let score = 0;
-  for (const e of r.entries) {
-    const st = (e.status ?? "").toUpperCase();
-    if (st === "DONE") score += 1;
-    else if (st === "HALF") score += 0.5;
+  let totalRequired = 0;
+  let totalScore = 0;
+
+  for (const c of r.roundCategories) {
+    const allowed = c.allowDaysOffPerWeek ?? 0;
+    const required = requiredDays(r.lengthWeeks, allowed);
+    if (required <= 0) continue;
+    const score = calcCategoryScore(r, c.categoryId);
+    totalRequired += required;
+    totalScore += Math.min(score, required);
   }
 
-  const denom = totalDays * cats;
-  return Math.max(0, Math.min(100, (score / denom) * 100));
+  if (totalRequired <= 0) return 100;
+  return Math.max(0, Math.min(100, (totalScore / totalRequired) * 100));
 }
 
 function shouldHideControls(v: string | null) {
@@ -186,11 +203,13 @@ export default function PersonPage() {
   // New round confirmation modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [startDateInput, setStartDateInput] = useState<string>(() => yyyyMmDd(new Date()));
+  const [roundLengthWeeks, setRoundLengthWeeks] = useState<number>(8);
   const [editStartOpen, setEditStartOpen] = useState(false);
   const [editStartDateInput, setEditStartDateInput] = useState<string>("");
 
   function openNewRoundPrompt() {
     setStartDateInput(yyyyMmDd(new Date()));
+    setRoundLengthWeeks(8);
     setConfirmOpen(true);
   }
 
@@ -208,12 +227,21 @@ export default function PersonPage() {
       return;
     }
 
+    if (roundLengthWeeks !== 4 && roundLengthWeeks !== 8) {
+      alert("Round length must be 4 or 8 weeks.");
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch(apiUrl("rounds/start"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personId, startDate: startDateInput }),
+      body: JSON.stringify({
+        personId,
+        startDate: startDateInput,
+        lengthWeeks: roundLengthWeeks,
+      }),
     });
 
     const created = await res.json().catch(() => null);
@@ -389,7 +417,7 @@ export default function PersonPage() {
               className="absolute inset-0 bg-black/60"
               onClick={() => !loading && setConfirmOpen(false)}
             />
-            <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+            <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
               <h3 className="text-lg font-semibold text-slate-100">Start a new round?</h3>
               <p className="mt-2 text-sm text-slate-300">
                 Starting a new round makes previous rounds inactive and not editable.
@@ -538,21 +566,7 @@ export default function PersonPage() {
                     return `${mm}/${dd}/${yy}`;
                   };
 
-                  const totalPct = (() => {
-                    const totalDays = r.lengthWeeks * 7;
-                    const cats = r.roundCategories.length || 0;
-                    if (totalDays <= 0 || cats <= 0) return 0;
-
-                    let score = 0;
-                    for (const e of r.entries) {
-                      const st = (e.status ?? "").toUpperCase();
-                      if (st === "DONE") score += 1;
-                      else if (st === "HALF") score += 0.5;
-                    }
-
-                    const denom = totalDays * cats;
-                    return Math.max(0, Math.min(100, (score / denom) * 100));
-                  })();
+                  const totalPct = calcTotalPercent(r);
 
                   const CompactPct = ({ pct, tone }: { pct: number; tone: "total" | "cat" }) => (
                     <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -590,7 +604,9 @@ export default function PersonPage() {
 
                       {/* Per-category % */}
                       {round.roundCategories.map((c) => {
-                        const pct = calcCategoryPercent(r, c.categoryId);
+                        const match = r.roundCategories.find((rc) => rc.categoryId === c.categoryId);
+                        const allowed = match?.allowDaysOffPerWeek ?? 0;
+                        const pct = calcCategoryPercent(r, c.categoryId, allowed);
                         return (
                           <td key={`${r.id}-${c.categoryId}`} className="px-3 py-2">
                             <CompactPct pct={pct} tone="cat" />
@@ -627,7 +643,7 @@ export default function PersonPage() {
             className="absolute inset-0 bg-black/70"
             onClick={() => setOpenRound(null)}
           />
-          <div className="relative w-[96vw] max-w-[980px] rounded-2xl border border-white/10 bg-slate-950/85 p-5 shadow-2xl backdrop-blur">
+          <div className="relative w-[96vw] max-w-[980px] rounded-2xl border border-white/10 bg-[#111111]/85 p-5 shadow-2xl backdrop-blur">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-100">
@@ -670,11 +686,39 @@ export default function PersonPage() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !loading && setConfirmOpen(false)}
           />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">Start a new round?</h3>
             <p className="mt-2 text-sm text-slate-300">
               Starting a new round makes previous rounds inactive and not editable.
             </p>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Round length</label>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoundLengthWeeks(8)}
+                  className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
+                    roundLengthWeeks === 8
+                      ? "bg-sky-500 text-white"
+                      : "bg-white/5 text-slate-100 hover:bg-white/10"
+                  }`}
+                >
+                  8 weeks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoundLengthWeeks(4)}
+                  className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
+                    roundLengthWeeks === 4
+                      ? "bg-sky-500 text-white"
+                      : "bg-white/5 text-slate-100 hover:bg-white/10"
+                  }`}
+                >
+                  4 weeks
+                </button>
+              </div>
+            </div>
 
             <div className="mt-4">
               <label className="text-sm font-medium text-slate-200">Start date</label>
@@ -711,7 +755,7 @@ export default function PersonPage() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !loading && setEditStartOpen(false)}
           />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">Edit round start date</h3>
             <p className="mt-2 text-sm text-slate-300">
               This shifts every entry in the round by the same number of days.
@@ -752,7 +796,7 @@ export default function PersonPage() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !loading && setDeleteConfirmOpen(false)}
           />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">
               Delete Round {deleteTarget.roundNumber}?
             </h3>

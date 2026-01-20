@@ -18,18 +18,18 @@ export async function PATCH(req: Request) {
 
   const current = await prisma.category.findUnique({
     where: { id: categoryId },
-    select: { id: true, sortOrder: true },
+    select: { id: true, sortOrder: true, active: true },
   });
 
-  if (!current) {
+  if (!current || !current.active) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
 
   const neighbor = await prisma.category.findFirst({
     where:
       direction === "up"
-        ? { sortOrder: { lt: current.sortOrder } }
-        : { sortOrder: { gt: current.sortOrder } },
+        ? { sortOrder: { lt: current.sortOrder }, active: true }
+        : { sortOrder: { gt: current.sortOrder }, active: true },
     orderBy: { sortOrder: direction === "up" ? "desc" : "asc" },
     select: { id: true, sortOrder: true },
   });

@@ -63,7 +63,7 @@ export default function StatusLegend() {
           {items.map((it) => (
             <div
               key={it.glyph}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2"
+              className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#111111]/30 px-3 py-2"
             >
               <div
                 className={[

@@ -28,7 +28,14 @@ export async function GET(
     where: { personId },
     orderBy: { createdAt: "desc" },
     include: {
-      roundCategories: { orderBy: { sortOrder: "asc" } },
+      roundCategories: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          categoryId: true,
+          displayName: true,
+          category: { select: { allowDaysOffPerWeek: true } },
+        },
+      },
       entries: true,
     },
   });
@@ -40,6 +47,11 @@ export async function GET(
   const normalized = {
     ...latest,
     startDate: ymd(latest.startDate),
+    roundCategories: latest.roundCategories.map((c) => ({
+      categoryId: c.categoryId,
+      displayName: c.displayName,
+      allowDaysOffPerWeek: c.category?.allowDaysOffPerWeek ?? 0,
+    })),
     // Normalize entry dates too so the UI never sees "...Z"
     entries: latest.entries.map((e) => ({
       ...e,

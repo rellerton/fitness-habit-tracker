@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type RoundCategoryRow = { categoryId: string; displayName: string };
+type RoundCategoryRow = {
+  categoryId: string;
+  displayName: string;
+  category: { allowDaysOffPerWeek: number };
+};
 type EntryRow = { categoryId: string; date: Date; status: string };
 
 type RoundRaw = {
@@ -19,7 +23,7 @@ type RoundHistoryItem = {
   lengthWeeks: number;
   createdAt: string; // ISO timestamp
   roundNumber: number;
-  roundCategories: RoundCategoryRow[];
+  roundCategories: { categoryId: string; displayName: string; allowDaysOffPerWeek: number }[];
   entries: { categoryId: string; date: string; status: string }[]; // date = YYYY-MM-DD
 };
 
@@ -50,7 +54,11 @@ export async function GET(
       createdAt: true,
       roundCategories: {
         orderBy: { sortOrder: "asc" },
-        select: { categoryId: true, displayName: true },
+        select: {
+          categoryId: true,
+          displayName: true,
+          category: { select: { allowDaysOffPerWeek: true } },
+        },
       },
       entries: {
         select: { categoryId: true, date: true, status: true },
@@ -66,6 +74,7 @@ export async function GET(
     roundCategories: r.roundCategories.map((c: RoundCategoryRow) => ({
       categoryId: c.categoryId,
       displayName: c.displayName,
+      allowDaysOffPerWeek: c.category?.allowDaysOffPerWeek ?? 0,
     })),
     entries: r.entries.map((e: EntryRow) => ({
       categoryId: e.categoryId,
