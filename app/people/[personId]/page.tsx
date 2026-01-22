@@ -365,6 +365,78 @@ export default function PersonPage() {
     return history.filter((r) => r.id !== round.id); // exclude current even if active flag is weird
   }, [history, round]);
 
+  const confirmModal = confirmOpen ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={() => !loading && setConfirmOpen(false)}
+      />
+      <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+        <h3 className="text-lg font-semibold text-slate-100">Start a new round?</h3>
+        <p className="mt-2 text-sm text-slate-300">
+          Starting a new round makes previous rounds inactive and not editable.
+        </p>
+
+        <div className="mt-4">
+          <label className="text-sm font-medium text-slate-200">Round length</label>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRoundLengthWeeks(8)}
+              className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
+                roundLengthWeeks === 8
+                  ? "bg-sky-500 text-white"
+                  : "bg-white/5 text-slate-100 hover:bg-white/10"
+              }`}
+            >
+              8 weeks
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoundLengthWeeks(4)}
+              className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
+                roundLengthWeeks === 4
+                  ? "bg-sky-500 text-white"
+                  : "bg-white/5 text-slate-100 hover:bg-white/10"
+              }`}
+            >
+              4 weeks
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-sm font-medium text-slate-200">Start date</label>
+          <input
+            type="date"
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
+            className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+            style={{ colorScheme: "dark" }}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+            onClick={() => setConfirmOpen(false)}
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+            onClick={confirmStartRound}
+            disabled={loading}
+          >
+            {loading ? "Starting..." : "Start round"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+
   // If no round yet
   if (!round) {
     return (
@@ -410,48 +482,7 @@ export default function PersonPage() {
           </p>
         </section>
 
-        {/* Confirm Modal */}
-        {confirmOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div
-              className="absolute inset-0 bg-black/60"
-              onClick={() => !loading && setConfirmOpen(false)}
-            />
-            <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
-              <h3 className="text-lg font-semibold text-slate-100">Start a new round?</h3>
-              <p className="mt-2 text-sm text-slate-300">
-                Starting a new round makes previous rounds inactive and not editable.
-              </p>
-
-              <div className="mt-4">
-                <label className="text-sm font-medium text-slate-200">Start date</label>
-                <input
-                  type="date"
-                  value={startDateInput}
-                  onChange={(e) => setStartDateInput(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
-                />
-              </div>
-
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
-                  onClick={() => setConfirmOpen(false)}
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
-                  onClick={confirmStartRound}
-                  disabled={loading}
-                >
-                  {loading ? "Starting..." : "Start round"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {confirmModal}
       </main>
     );
   }
@@ -679,76 +710,7 @@ export default function PersonPage() {
         </div>
       )}
 
-      {/* Confirm Modal (New Round) */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => !loading && setConfirmOpen(false)}
-          />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
-            <h3 className="text-lg font-semibold text-slate-100">Start a new round?</h3>
-            <p className="mt-2 text-sm text-slate-300">
-              Starting a new round makes previous rounds inactive and not editable.
-            </p>
-
-            <div className="mt-4">
-              <label className="text-sm font-medium text-slate-200">Round length</label>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRoundLengthWeeks(8)}
-                  className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
-                    roundLengthWeeks === 8
-                      ? "bg-sky-500 text-white"
-                      : "bg-white/5 text-slate-100 hover:bg-white/10"
-                  }`}
-                >
-                  8 weeks
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoundLengthWeeks(4)}
-                  className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
-                    roundLengthWeeks === 4
-                      ? "bg-sky-500 text-white"
-                      : "bg-white/5 text-slate-100 hover:bg-white/10"
-                  }`}
-                >
-                  4 weeks
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <label className="text-sm font-medium text-slate-200">Start date</label>
-              <input
-                type="date"
-                value={startDateInput}
-                onChange={(e) => setStartDateInput(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
-              />
-            </div>
-
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
-                onClick={() => setConfirmOpen(false)}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button
-                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
-                onClick={confirmStartRound}
-                disabled={loading}
-              >
-                {loading ? "Starting..." : "Start round"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {confirmModal}
       {editStartOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -763,12 +725,13 @@ export default function PersonPage() {
 
             <div className="mt-4">
               <label className="text-sm font-medium text-slate-200">Start date</label>
-              <input
-                type="date"
-                value={editStartDateInput}
-                onChange={(e) => setEditStartDateInput(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
-              />
+                <input
+                  type="date"
+                  value={editStartDateInput}
+                  onChange={(e) => setEditStartDateInput(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+                  style={{ colorScheme: "dark" }}
+                />
             </div>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.0.1
+
+- People: edit and delete persons (delete cascades all their rounds and entries).
+- Rounds: unify the start-round modal so 4/8-week selection appears for new and existing people.
+- UI: dark-theme the start-round date picker.
+
 ## v2.0.0
 
 - Rounds: choose 4-week or 8-week length when starting a new round (default 8).

@@ -45,6 +45,12 @@ export default function AdminPage() {
     roundNumber: number;
   } | null>(null);
 
+  const [deletePersonOpen, setDeletePersonOpen] = useState(false);
+  const [deletePersonTarget, setDeletePersonTarget] = useState<Person | null>(null);
+  const [editPersonOpen, setEditPersonOpen] = useState(false);
+  const [editPersonTarget, setEditPersonTarget] = useState<Person | null>(null);
+  const [editPersonName, setEditPersonName] = useState("");
+
   const [deleteCatOpen, setDeleteCatOpen] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string } | null>(null);
   const [editCatOpen, setEditCatOpen] = useState(false);
@@ -102,6 +108,67 @@ export default function AdminPage() {
     } catch (e) {
       console.error(e);
       alert(`Failed to add person: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function openEditPerson(person: Person) {
+    setEditPersonTarget(person);
+    setEditPersonName(person.name);
+    setEditPersonOpen(true);
+  }
+
+  async function confirmEditPerson() {
+    if (!editPersonTarget) return;
+
+    const name = editPersonName.trim();
+    if (!name) {
+      alert("Name is required.");
+      return;
+    }
+
+    setBusy("person");
+    try {
+      await fetchJson(`people/${editPersonTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setEditPersonOpen(false);
+      setEditPersonTarget(null);
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Update failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function openDeletePerson(person: Person) {
+    setDeletePersonTarget(person);
+    setDeletePersonOpen(true);
+  }
+
+  async function confirmDeletePerson() {
+    if (!deletePersonTarget) return;
+
+    setBusy("person");
+    try {
+      await fetchJson(`people/${deletePersonTarget.id}`, { method: "DELETE" });
+      setDeletePersonOpen(false);
+      setDeletePersonTarget(null);
+      setExpandedPersonId((prev) => (prev === deletePersonTarget.id ? null : prev));
+      setRoundsByPerson((prev) => {
+        const next = { ...prev };
+        delete next[deletePersonTarget.id];
+        return next;
+      });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Delete failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -336,13 +403,35 @@ export default function AdminPage() {
 
                 return (
                   <li key={p.id} className="px-4 py-3">
-                    <button
-                      className="flex w-full items-center justify-between gap-3 text-left"
-                      onClick={() => togglePerson(p.id)}
-                    >
-                      <span className="font-medium text-slate-100">{p.name}</span>
-                      <span className="text-xs text-slate-400">{expanded ? "Hide rounds" : "Show rounds"}</span>
-                    </button>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                        onClick={() => togglePerson(p.id)}
+                      >
+                        <span className="font-medium text-slate-100">{p.name}</span>
+                        <span className="text-xs text-slate-400">{expanded ? "Hide rounds" : "Show rounds"}</span>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditPerson(p);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-rose-500/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeletePerson(p);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
 
                     {expanded && (
                       <div className="mt-3 rounded-xl border border-white/10 bg-[#111111]/25 p-3">
@@ -499,6 +588,73 @@ export default function AdminPage() {
           </div>
         </section>
       </div>
+
+      {editPersonOpen && editPersonTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setEditPersonOpen(false)} />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">Edit person</h3>
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Name</label>
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/60"
+                value={editPersonName}
+                onChange={(e) => setEditPersonName(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setEditPersonOpen(false)}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                onClick={confirmEditPerson}
+                disabled={busy !== null}
+              >
+                {busy === "person" ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletePersonOpen && deletePersonTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeletePersonOpen(false)} />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">
+              Delete {deletePersonTarget.name}?
+            </h3>
+            <p className="mt-2 text-sm text-slate-300">
+              This permanently deletes the person and all of their rounds and entries. This cannot be undone.
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setDeletePersonOpen(false)}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60"
+                onClick={confirmDeletePerson}
+                disabled={busy !== null}
+              >
+                {busy === "person" ? "Deleting..." : "Delete person"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
