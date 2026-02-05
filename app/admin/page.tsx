@@ -54,6 +54,7 @@ export default function AdminPage() {
 
   const [deleteCatOpen, setDeleteCatOpen] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteCatRemoveFromActive, setDeleteCatRemoveFromActive] = useState(false);
   const [editCatOpen, setEditCatOpen] = useState(false);
   const [editCatTarget, setEditCatTarget] = useState<{ id: string; name: string } | null>(null);
   const [editCatName, setEditCatName] = useState("");
@@ -230,6 +231,7 @@ export default function AdminPage() {
 
   function openDeleteCategory(id: string, name: string) {
     setDeleteCatTarget({ id, name });
+    setDeleteCatRemoveFromActive(false);
     setDeleteCatOpen(true);
   }
 
@@ -282,9 +284,14 @@ export default function AdminPage() {
 
     setBusy("category");
     try {
-      await fetchJson(`categories/${deleteCatTarget.id}`, { method: "DELETE" });
+      await fetchJson(`categories/${deleteCatTarget.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ removeFromActiveRounds: deleteCatRemoveFromActive }),
+      });
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
+      setDeleteCatRemoveFromActive(false);
       await refresh();
     } catch (e) {
       console.error(e);
@@ -782,6 +789,16 @@ export default function AdminPage() {
             <p className="mt-2 text-sm text-slate-300">
               This hides the category from new rounds. Existing rounds keep their snapshot categories.
             </p>
+            <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-rose-400 focus:ring-rose-400/30"
+                checked={deleteCatRemoveFromActive}
+                onChange={(e) => setDeleteCatRemoveFromActive(e.target.checked)}
+                disabled={busy !== null}
+              />
+              Also remove from active rounds (deletes current-round entries)
+            </label>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button

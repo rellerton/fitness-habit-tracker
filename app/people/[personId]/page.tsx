@@ -141,7 +141,6 @@ export default function PersonPage() {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; roundNumber: number } | null>(null);
-  const [sidebarCopied, setSidebarCopied] = useState(false);
 
   // modal
   const [openRound, setOpenRound] = useState<RoundHistoryItem | null>(null);
@@ -361,34 +360,6 @@ export default function PersonPage() {
     setLoading(false);
   }
 
-  async function copySidebarUrl() {
-    if (!personId) return;
-    const path = joinIngressPath(ingressPrefix, `/people/${personId}`);
-    const url = typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
-
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-      } else if (typeof document !== "undefined") {
-        const input = document.createElement("textarea");
-        input.value = url;
-        input.style.position = "fixed";
-        input.style.left = "-9999px";
-        document.body.appendChild(input);
-        input.focus();
-        input.select();
-        document.execCommand("copy");
-        document.body.removeChild(input);
-      }
-
-      setSidebarCopied(true);
-      window.setTimeout(() => setSidebarCopied(false), 1500);
-    } catch (error) {
-      console.error("Failed to copy sidebar URL:", error);
-      alert("Failed to copy sidebar URL.");
-    }
-  }
-
   const inactiveRounds = useMemo(() => {
     if (!round) return history.filter((r) => !r.active);
     return history.filter((r) => r.id !== round.id); // exclude current even if active flag is weird
@@ -493,13 +464,6 @@ export default function PersonPage() {
                 >
                   Admin
                 </Link>
-                <button
-                  onClick={copySidebarUrl}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
-                  title="Copy Home Assistant sidebar URL"
-                >
-                  {sidebarCopied ? "Copied" : "Copy sidebar URL"}
-                </button>
               </div>
             )}
         </div>
@@ -554,14 +518,6 @@ export default function PersonPage() {
                 title="Edit the start date (shifts all entries)"
               >
                 Edit Start Date
-              </button>
-
-              <button
-                onClick={copySidebarUrl}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
-                title="Copy Home Assistant sidebar URL"
-              >
-                {sidebarCopied ? "Copied" : "Copy sidebar URL"}
               </button>
             </>
           )}

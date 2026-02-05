@@ -28,7 +28,7 @@ async function getLatestRoundIds(tx: Prisma.TransactionClient) {
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ categoryId: string }> }
 ) {
   const { categoryId } = await ctx.params;
@@ -46,12 +46,27 @@ export async function DELETE(
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
 
-  // Soft delete so existing rounds/entries remain intact.
+  const body = await req.json().catch(() => null);
+  const removeFromActiveRounds = parseApplyToExisting(body?.removeFromActiveRounds);
+
+  // Soft delete so existing rounds/entries remain intact (unless opted out below).
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.category.update({
       where: { id: categoryId },
       data: { active: false },
     });
+
+    if (removeFromActiveRounds) {
+      const latestRoundIds = await getLatestRoundIds(tx);
+      if (latestRoundIds.length > 0) {
+        await tx.entry.deleteMany({
+          where: { categoryId, roundId: { in: latestRoundIds } },
+        });
+        await tx.roundCategory.deleteMany({
+          where: { categoryId, roundId: { in: latestRoundIds } },
+        });
+      }
+    }
   });
 
   return NextResponse.json({ ok: true });
