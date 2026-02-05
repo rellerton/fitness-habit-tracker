@@ -300,6 +300,7 @@ export default function RoundWheel({
   const ringCount = Math.max(1, categories.length);
   const ringThickness = (gridOuter - 78) / ringCount;
   const innerBase = gridOuter - ringCount * ringThickness;
+  const glyphFontSize = Math.max(7, Math.min(10, ringThickness * 0.38));
 
   const totalSegments = totalDays + labelDays;
   const step = (Math.PI * 2) / totalSegments;
@@ -682,7 +683,7 @@ export default function RoundWheel({
                       y={mid.y}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontSize={12}
+                      fontSize={glyphFontSize}
                       fill={glyphColor(status)}
                       style={{ fontWeight: 900, pointerEvents: "none" }}
                     >

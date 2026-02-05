@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.0.3
+
+- RoundWheel: slightly reduce glyph size in thinner rings (better at 5 categories).
+- UI: add “copy sidebar URL” action per person on Home and People pages.
+
 ## v2.0.2
 
 - Categories: add “apply to latest rounds” option for new categories and name edits.

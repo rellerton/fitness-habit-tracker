@@ -14,6 +14,7 @@ export default function PeoplePage() {
   })();
 
   const [people, setPeople] = useState<Person[]>([]);
+  const [sidebarCopiedId, setSidebarCopiedId] = useState<string | null>(null);
 
   async function refresh() {
     const p = await fetch(apiUrl("people")).then((r) => r.json());
@@ -23,6 +24,33 @@ export default function PeoplePage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  async function copySidebarUrl(personId: string) {
+    const path = joinIngressPath(ingressPrefix, `/people/${personId}`);
+    const url = typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else if (typeof document !== "undefined") {
+        const input = document.createElement("textarea");
+        input.value = url;
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+
+      setSidebarCopiedId(personId);
+      window.setTimeout(() => setSidebarCopiedId((prev) => (prev === personId ? null : prev)), 1500);
+    } catch (error) {
+      console.error("Failed to copy sidebar URL:", error);
+      alert("Failed to copy sidebar URL.");
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-8">
@@ -57,18 +85,38 @@ export default function PeoplePage() {
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-2 shadow-sm">
         <ul className="divide-y divide-white/10">
           {people.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/5">
               <Link
                 href={joinIngressPath(ingressPrefix, `/people/${p.id}`)}
-                className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 hover:bg-white/5"
+                className="min-w-0 flex-1"
               >
-                <span className="font-medium text-slate-100 group-hover:text-white">
+                <div className="truncate text-sm font-medium text-slate-100">
                   {p.name}
-                </span>
-                <span className="text-xs text-slate-400">
-                  {p.id.slice(0, 8)}
-                </span>
+                </div>
+                <div className="text-xs text-slate-500">{p.id.slice(0, 8)}</div>
               </Link>
+              <button
+                onClick={() => copySidebarUrl(p.id)}
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-100 hover:bg-white/10"
+                title="Copy sidebar URL"
+                aria-label="Copy sidebar URL"
+              >
+                {sidebarCopiedId === p.id ? (
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M7.75 13.25 4.5 10l1.2-1.2 2.05 2.05 6.6-6.6L15.5 5.4z"
+                    />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M6.5 2.5h7a2 2 0 0 1 2 2V12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V4.5a2 2 0 0 1 2-2Zm0 1.5a.5.5 0 0 0-.5.5V12a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5V4.5a.5.5 0 0 0-.5-.5h-7ZM3.5 6a2 2 0 0 1 2-2v1.5h-2a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H10.5V15h-7a2 2 0 0 1-2-2V6Z"
+                    />
+                  </svg>
+                )}
+              </button>
             </li>
           ))}
 
