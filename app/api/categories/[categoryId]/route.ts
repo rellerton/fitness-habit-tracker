@@ -2,6 +2,31 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
+function parseApplyToExisting(value: unknown) {
+  if (value === true) return true;
+  if (value === "true") return true;
+  if (value === 1) return true;
+  if (value === "1") return true;
+  return false;
+}
+
+async function getLatestRoundIds(tx: Prisma.TransactionClient) {
+  const rounds = await tx.round.findMany({
+    orderBy: [{ personId: "asc" }, { createdAt: "desc" }],
+    select: { id: true, personId: true },
+  });
+
+  const latestRoundIds: string[] = [];
+  const seen = new Set<string>();
+  for (const round of rounds) {
+    if (seen.has(round.personId)) continue;
+    seen.add(round.personId);
+    latestRoundIds.push(round.id);
+  }
+
+  return latestRoundIds;
+}
+
 export async function DELETE(
   _req: Request,
   ctx: { params: Promise<{ categoryId: string }> }
@@ -45,6 +70,7 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   const name = (body?.name as string | undefined)?.trim();
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
+  const applyToExisting = parseApplyToExisting(body?.applyToExisting);
   let allowDaysOffPerWeek: number | undefined;
 
   if (!name) {
@@ -73,13 +99,27 @@ export async function PATCH(
   }
 
   try {
-    const updated = await prisma.category.update({
-      where: { id: categoryId },
-      data: {
-        name,
-        ...(allowDaysOffPerWeek !== undefined ? { allowDaysOffPerWeek } : {}),
-      },
-      select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await tx.category.update({
+        where: { id: categoryId },
+        data: {
+          name,
+          ...(allowDaysOffPerWeek !== undefined ? { allowDaysOffPerWeek } : {}),
+        },
+        select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+      });
+
+      if (applyToExisting) {
+        const latestRoundIds = await getLatestRoundIds(tx);
+        if (latestRoundIds.length > 0) {
+          await tx.roundCategory.updateMany({
+            where: { categoryId, roundId: { in: latestRoundIds } },
+            data: { displayName: name },
+          });
+        }
+      }
+
+      return next;
     });
 
     return NextResponse.json(updated);

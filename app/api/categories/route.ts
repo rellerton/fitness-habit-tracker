@@ -4,6 +4,31 @@ import { Prisma } from "@prisma/client";
 
 const MAX_ACTIVE_CATEGORIES = 5;
 
+function parseApplyToExisting(value: unknown) {
+  if (value === true) return true;
+  if (value === "true") return true;
+  if (value === 1) return true;
+  if (value === "1") return true;
+  return false;
+}
+
+async function getLatestRoundIds(tx: Prisma.TransactionClient) {
+  const rounds = await tx.round.findMany({
+    orderBy: [{ personId: "asc" }, { createdAt: "desc" }],
+    select: { id: true, personId: true },
+  });
+
+  const latestRoundIds: string[] = [];
+  const seen = new Set<string>();
+  for (const round of rounds) {
+    if (seen.has(round.personId)) continue;
+    seen.add(round.personId);
+    latestRoundIds.push(round.id);
+  }
+
+  return latestRoundIds;
+}
+
 export async function GET() {
   const cats = await prisma.category.findMany({
     where: { active: true },
@@ -33,6 +58,7 @@ export async function POST(req: Request) {
     allowDaysOffPerWeek = parsed;
   }
 
+  const applyToExisting = parseApplyToExisting(body?.applyToExisting);
   const activeCount = await prisma.category.count({ where: { active: true } });
   const existing = await prisma.category.findUnique({ where: { name } });
   if (existing?.active) {
@@ -52,22 +78,51 @@ export async function POST(req: Request) {
   });
   const nextSort = (max._max.sortOrder ?? 0) + 1;
 
-  if (existing && !existing.active) {
-    const reactivated = await prisma.category.update({
-      where: { id: existing.id },
-      data: { active: true, sortOrder: nextSort, allowDaysOffPerWeek },
-      select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
-    });
-    return NextResponse.json(reactivated, { status: 200 });
-  }
-
   try {
-    const created = await prisma.category.create({
-      data: { name, sortOrder: nextSort, allowDaysOffPerWeek },
-      select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+    const responseStatus = existing && !existing.active ? 200 : 201;
+    const category = await prisma.$transaction(async (tx) => {
+      let created: { id: string; name: string; sortOrder: number; allowDaysOffPerWeek: number };
+      if (existing && !existing.active) {
+        created = await tx.category.update({
+          where: { id: existing.id },
+          data: { active: true, sortOrder: nextSort, allowDaysOffPerWeek },
+          select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+        });
+      } else {
+        created = await tx.category.create({
+          data: { name, sortOrder: nextSort, allowDaysOffPerWeek },
+          select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+        });
+      }
+
+      if (applyToExisting) {
+        const latestRoundIds = await getLatestRoundIds(tx);
+        if (latestRoundIds.length > 0) {
+          const roundsMissing = await tx.round.findMany({
+            where: {
+              id: { in: latestRoundIds },
+              roundCategories: { none: { categoryId: created.id } },
+            },
+            select: { id: true },
+          });
+
+          if (roundsMissing.length > 0) {
+            await tx.roundCategory.createMany({
+              data: roundsMissing.map((round) => ({
+                roundId: round.id,
+                categoryId: created.id,
+                sortOrder: created.sortOrder,
+                displayName: created.name,
+              })),
+            });
+          }
+        }
+      }
+
+      return created;
     });
 
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json(category, { status: responseStatus });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "Category name already exists." }, { status: 409 });

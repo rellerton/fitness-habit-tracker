@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.2
+
+- Categories: add “apply to latest rounds” option for new categories and name edits.
+
 ## v2.0.1
 
 - People: edit and delete persons (delete cascades all their rounds and entries).

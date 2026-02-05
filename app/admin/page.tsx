@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [personName, setPersonName] = useState("");
   const [catName, setCatName] = useState("");
   const [catDaysOff, setCatDaysOff] = useState<number>(0);
+  const [applyCatToExisting, setApplyCatToExisting] = useState(false);
   const [busy, setBusy] = useState<"person" | "category" | null>(null);
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export default function AdminPage() {
   const [editCatTarget, setEditCatTarget] = useState<{ id: string; name: string } | null>(null);
   const [editCatName, setEditCatName] = useState("");
   const [editCatDaysOff, setEditCatDaysOff] = useState<number>(0);
+  const [applyEditCatToExisting, setApplyEditCatToExisting] = useState(false);
 
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
   const canAddCategory = useMemo(
@@ -191,10 +193,15 @@ export default function AdminPage() {
       await fetchJson("categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, allowDaysOffPerWeek: catDaysOff }),
+        body: JSON.stringify({
+          name,
+          allowDaysOffPerWeek: catDaysOff,
+          applyToExisting: applyCatToExisting,
+        }),
       });
       setCatName("");
       setCatDaysOff(0);
+      setApplyCatToExisting(false);
       await refresh();
     } catch (e) {
       console.error(e);
@@ -230,6 +237,7 @@ export default function AdminPage() {
     setEditCatTarget({ id, name });
     setEditCatName(name);
     setEditCatDaysOff(daysOff);
+    setApplyEditCatToExisting(false);
     setEditCatOpen(true);
   }
 
@@ -251,10 +259,15 @@ export default function AdminPage() {
       await fetchJson(`categories/${editCatTarget.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, allowDaysOffPerWeek: editCatDaysOff }),
+        body: JSON.stringify({
+          name,
+          allowDaysOffPerWeek: editCatDaysOff,
+          applyToExisting: applyEditCatToExisting,
+        }),
       });
       setEditCatOpen(false);
       setEditCatTarget(null);
+      setApplyEditCatToExisting(false);
       await refresh();
     } catch (e) {
       console.error(e);
@@ -528,6 +541,16 @@ export default function AdminPage() {
               {busy === "category" ? "Adding..." : "Add"}
             </button>
           </div>
+          <label className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+              checked={applyCatToExisting}
+              onChange={(e) => setApplyCatToExisting(e.target.checked)}
+              disabled={busy !== null}
+            />
+            Apply to latest rounds
+          </label>
           <p className="mt-2 text-xs text-slate-500">
             Max {MAX_ACTIVE_CATEGORIES} categories. Delete one to add a new category.
           </p>
@@ -692,7 +715,7 @@ export default function AdminPage() {
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">Edit category</h3>
             <p className="mt-2 text-sm text-slate-300">
-              This updates the category name for future rounds. Existing rounds keep their snapshot name.
+              This updates the category name for future rounds. You can optionally apply the new name to the latest rounds.
             </p>
 
             <div className="mt-4">
@@ -719,6 +742,16 @@ export default function AdminPage() {
                 <option className="bg-[#111111] text-slate-100" value={5}>5 days off/wk</option>
               </select>
             </div>
+            <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+                checked={applyEditCatToExisting}
+                onChange={(e) => setApplyEditCatToExisting(e.target.checked)}
+                disabled={busy !== null}
+              />
+              Apply name change to latest rounds
+            </label>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
