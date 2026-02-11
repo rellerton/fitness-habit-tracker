@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.1
+
+- Build: fix weight API type check for production build.
+
 ## v2.1.0
 
 - Weights: add weekly weight tracking per round with editable per-week entries.

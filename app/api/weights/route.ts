@@ -30,9 +30,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const weight =
-    typeof weightInput === "string" ? Number(weightInput) : weightInput;
-  if (!Number.isFinite(weight)) {
+  let weight: number | null = null;
+  if (weightInput !== undefined && weightInput !== null && weightInput !== "") {
+    const parsed = typeof weightInput === "string" ? Number(weightInput) : weightInput;
+    if (Number.isFinite(parsed)) {
+      weight = parsed;
+    }
+  }
+
+  if (weight === null) {
     return NextResponse.json({ error: "weight is required" }, { status: 400 });
   }
   if (weight <= 0) {
