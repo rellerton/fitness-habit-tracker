@@ -37,6 +37,10 @@ export async function GET(
         },
       },
       entries: true,
+      weightEntries: {
+        select: { weekIndex: true, weight: true, date: true },
+        orderBy: { weekIndex: "asc" },
+      },
     },
   });
 
@@ -47,6 +51,7 @@ export async function GET(
   const normalized = {
     ...latest,
     startDate: ymd(latest.startDate),
+    goalWeight: latest.goalWeight ?? null,
     roundCategories: latest.roundCategories.map((c) => ({
       categoryId: c.categoryId,
       displayName: c.displayName,
@@ -56,6 +61,11 @@ export async function GET(
     entries: latest.entries.map((e) => ({
       ...e,
       date: ymd(e.date),
+    })),
+    weightEntries: latest.weightEntries.map((w) => ({
+      weekIndex: w.weekIndex,
+      weight: w.weight,
+      date: ymd(w.date),
     })),
   };
 

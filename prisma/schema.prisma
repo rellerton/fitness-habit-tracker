@@ -34,6 +34,7 @@ model AppSettings {
   roundLengthWeeks Int      @default(8)
   weekStartsOn     Int      @default(0)
   timezone         String   @default("America/New_York")
+  weightUnit       String   @default("LBS")
   updatedAt        DateTime @updatedAt
 }
 
@@ -42,10 +43,12 @@ model Round {
   personId    String
   startDate   DateTime
   lengthWeeks Int
+  goalWeight  Float?
   createdAt   DateTime @default(now())
   person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   roundCategories RoundCategory[]
   entries         Entry[]
+  weightEntries   WeightEntry[]
   @@index([personId])
 }
 
@@ -74,4 +77,20 @@ model Entry {
 
   @@unique([roundId, categoryId, date])
   @@index([roundId, date])
+
+}
+
+model WeightEntry {
+  id        String   @id @default(cuid())
+  roundId   String
+  weekIndex Int
+  date      DateTime
+  weight    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  round     Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, weekIndex])
+  @@index([roundId])
 }

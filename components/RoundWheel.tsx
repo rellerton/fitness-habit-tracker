@@ -8,6 +8,12 @@ type Category = {
   allowDaysOffPerWeek?: number;
 };
 
+type WeightEntry = {
+  weekIndex: number;
+  weight: number;
+  date?: string;
+};
+
 export type RoundWheelEntry = {
   categoryId: string;
   date: string; // YYYY-MM-DD or ISO
@@ -22,6 +28,9 @@ type Props = {
   lengthWeeks: number;
   categories: Category[];
   entries: RoundWheelEntry[];
+  weightEntries?: WeightEntry[];
+  weightUnit?: "LBS" | "KG";
+  onWeekWeightClick?: (weekIdx: number) => void;
   onCellClick: (roundId: string, categoryId: string, day: string) => void;
   size?: number;
 };
@@ -184,6 +193,15 @@ function glyphColor(status: string) {
   return "rgba(255,255,255,0.92)";
 }
 
+function formatWeight(value: number) {
+  if (!Number.isFinite(value)) return "";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function unitLabel(unit?: "LBS" | "KG") {
+  return unit === "KG" ? "kg" : "lbs";
+}
+
 export default function RoundWheel({
   roundId,
   roundNumber,
@@ -192,6 +210,9 @@ export default function RoundWheel({
   lengthWeeks,
   categories,
   entries,
+  weightEntries,
+  weightUnit,
+  onWeekWeightClick,
   onCellClick,
   size = 640,
 }: Props) {
@@ -244,6 +265,15 @@ export default function RoundWheel({
     for (const e of entries) m.set(`${e.categoryId}|${e.date}`, e.status);
     return m;
   }, [entries]);
+
+  const weightByWeekIdx = useMemo(() => {
+    const m = new Map<number, WeightEntry>();
+    if (!weightEntries) return m;
+    for (const w of weightEntries) {
+      m.set(w.weekIndex, w);
+    }
+    return m;
+  }, [weightEntries]);
 
   // Local "today" key
   const todayKey = useMemo(() => formatDate(new Date()), []);
@@ -314,6 +344,7 @@ export default function RoundWheel({
   const labelMidR = (gridOuter + labelOuter) / 2;
   const dateR = labelMidR - 8;
   const weekR = labelMidR + 7;
+  const weekIconR = labelOuter - 12;
 
   // Today highlight style
   const TODAY_STROKE = "rgba(250,204,21,0.95)"; // amber/yellow
@@ -323,7 +354,9 @@ export default function RoundWheel({
     ? days.slice(zoomTarget.weekIdx * 7, zoomTarget.weekIdx * 7 + 7)
     : [];
   const zoomWeekLabel = zoomTarget ? `Week ${zoomTarget.weekIdx + 1}` : "";
+  const zoomWeekWeight = zoomTarget ? weightByWeekIdx.get(zoomTarget.weekIdx) : undefined;
   const tooltipWeekIdx = pinnedWeekIdx ?? hoverWeekIdx;
+  const tooltipWeight = tooltipWeekIdx !== null ? weightByWeekIdx.get(tooltipWeekIdx) : undefined;
 
   function getWeekPercent(weekIdx: number, cat: Category) {
     const cached = weekPercentByCategory.get(cat.categoryId);
@@ -437,34 +470,72 @@ export default function RoundWheel({
 
           {/* Week labels */}
           {Array.from({ length: lengthWeeks }, (_, w) => {
-            const midDay = labelDays + w * 7 + 3.5;
-            const angle = rotation + midDay * step;
-            const pos = polar(cx, cy, weekR, angle);
-            const deg = (angle * 180) / Math.PI + 90;
+            const startDay = labelDays + w * 7;
+            const endDay = startDay + 7;
+            const a0 = rotation + startDay * step;
+            const a1 = rotation + endDay * step;
+            const weight = weightByWeekIdx.get(w);
+            const label = weight
+              ? `Week ${w + 1} • ${formatWeight(weight.weight)} ${unitLabel(weightUnit)}`
+              : `Week ${w + 1}`;
+            const arcId = `week-label-arc-${roundId}-${w}`;
+            const iconAngle = a0 + step * 0.8;
+            const iconPos = polar(cx, cy, weekIconR, iconAngle);
 
             return (
-              <text
-                key={`week-label-${w}`}
-                x={pos.x}
-                y={pos.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={10.5}
-                fill="rgba(148,163,184,0.95)"
-                style={{ fontWeight: 700, letterSpacing: 0.2 }}
-                className="cursor-pointer"
-                transform={`rotate(${deg} ${pos.x} ${pos.y})`}
-                onMouseEnter={() => setHoverWeekIdx(w)}
-                onMouseLeave={() => {
-                  if (pinnedWeekIdx === null) setHoverWeekIdx(null);
-                }}
-                onClick={() => {
-                  setPinnedWeekIdx((prev) => (prev === w ? null : w));
-                  setHoverWeekIdx(w);
-                }}
-              >
-                Week {w + 1}
-              </text>
+              <g key={`week-label-${w}`}>
+                <defs>
+                  <path
+                    id={arcId}
+                    d={arcPath(cx, cy, weekR, a0 + 0.01, a1 - 0.01)}
+                  />
+                </defs>
+                <text
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={10.5}
+                  fill="rgba(148,163,184,0.95)"
+                  style={{ fontWeight: 700, letterSpacing: 0.2 }}
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoverWeekIdx(w)}
+                  onMouseLeave={() => {
+                    if (pinnedWeekIdx === null) setHoverWeekIdx(null);
+                  }}
+                  onClick={() => {
+                    setPinnedWeekIdx((prev) => (prev === w ? null : w));
+                    setHoverWeekIdx(w);
+                  }}
+                >
+                  <textPath href={`#${arcId}`} startOffset="50%">
+                    {label}
+                  </textPath>
+                </text>
+                {onWeekWeightClick && (
+                  <g
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWeekWeightClick(w);
+                    }}
+                  >
+                    <title>Set weight</title>
+                    <g
+                      transform={`translate(${iconPos.x - 6}, ${iconPos.y - 6})`}
+                      fill="none"
+                      stroke="rgba(226,232,240,0.9)"
+                      strokeWidth={1.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      pointerEvents="none"
+                    >
+                      {/* Simple scale icon */}
+                      <rect x="1.5" y="2.5" width="9" height="8" rx="2" />
+                      <circle cx="6" cy="5" r="1.2" />
+                      <path d="M6 5 L7.2 3.8" />
+                    </g>
+                  </g>
+                )}
+              </g>
             );
           })}
 
@@ -786,6 +857,14 @@ export default function RoundWheel({
               <div className="text-[10px] uppercase tracking-wide text-slate-400">
                 Week {tooltipWeekIdx + 1}
               </div>
+              {tooltipWeight && (
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-200">
+                  <span>Weight</span>
+                  <span className="tabular-nums">
+                    {tooltipWeight.weight.toFixed(1)} {unitLabel(weightUnit)}
+                  </span>
+                </div>
+              )}
               <div className="mt-2 space-y-2">
                 {categories.map((cat, ringIdx) => {
                   const pct = Math.round(getWeekPercent(tooltipWeekIdx, cat) * 100);
@@ -829,6 +908,11 @@ export default function RoundWheel({
                 <p className="text-xs uppercase tracking-wide text-slate-400">
                   {zoomWeekLabel}
                 </p>
+                {zoomWeekWeight && (
+                  <p className="mt-1 text-xs text-slate-300">
+                    Weight: {zoomWeekWeight.weight.toFixed(1)} {unitLabel(weightUnit)}
+                  </p>
+                )}
                 {zoomWeekDays.length > 0 && (
                   <p className="mt-1 text-xs text-slate-400">
                     {formatMMDD(zoomWeekDays[0])} -{" "}

@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   const personId = body?.personId as string | undefined;
   const startDateStr = body?.startDate as string | undefined;
   const lengthWeeksInput = body?.lengthWeeks as number | string | undefined;
+  const goalWeightInput = body?.goalWeight as number | string | undefined;
 
   if (!personId) {
     return NextResponse.json({ error: "personId required" }, { status: 400 });
@@ -71,6 +72,19 @@ export async function POST(req: Request) {
     );
   }
 
+  let goalWeight: number | undefined;
+  if (goalWeightInput !== undefined && goalWeightInput !== null && goalWeightInput !== "") {
+    const parsed =
+      typeof goalWeightInput === "string" ? Number(goalWeightInput) : goalWeightInput;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return NextResponse.json(
+        { error: "goalWeight must be a number > 0" },
+        { status: 400 }
+      );
+    }
+    goalWeight = parsed;
+  }
+
   const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
 
     return tx.round.create({
@@ -78,6 +92,7 @@ export async function POST(req: Request) {
         personId,
         startDate,
         lengthWeeks,
+        ...(goalWeight !== undefined ? { goalWeight } : {}),
         roundCategories: {
           createMany: {
             data: categoryData.map((c) => ({

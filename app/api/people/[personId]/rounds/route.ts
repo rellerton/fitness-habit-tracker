@@ -7,24 +7,29 @@ type RoundCategoryRow = {
   category: { allowDaysOffPerWeek: number };
 };
 type EntryRow = { categoryId: string; date: Date; status: string };
+type WeightRow = { weekIndex: number; weight: number; date: Date };
 
 type RoundRaw = {
   id: string;
   startDate: Date;
   lengthWeeks: number;
+  goalWeight: number | null;
   createdAt: Date;
   roundCategories: RoundCategoryRow[];
   entries: EntryRow[];
+  weightEntries: WeightRow[];
 };
 
 type RoundHistoryItem = {
   id: string;
   startDate: string; // YYYY-MM-DD
   lengthWeeks: number;
+  goalWeight: number | null;
   createdAt: string; // ISO timestamp
   roundNumber: number;
   roundCategories: { categoryId: string; displayName: string; allowDaysOffPerWeek: number }[];
   entries: { categoryId: string; date: string; status: string }[]; // date = YYYY-MM-DD
+  weightEntries: { weekIndex: number; weight: number; date: string }[];
 };
 
 function ymd(d: Date) {
@@ -51,6 +56,7 @@ export async function GET(
       id: true,
       startDate: true,
       lengthWeeks: true,
+      goalWeight: true,
       createdAt: true,
       roundCategories: {
         orderBy: { sortOrder: "asc" },
@@ -63,6 +69,10 @@ export async function GET(
       entries: {
         select: { categoryId: true, date: true, status: true },
       },
+      weightEntries: {
+        select: { weekIndex: true, weight: true, date: true },
+        orderBy: { weekIndex: "asc" },
+      },
     },
   })) as RoundRaw[];
 
@@ -70,6 +80,7 @@ export async function GET(
     id: r.id,
     startDate: ymd(r.startDate),
     lengthWeeks: r.lengthWeeks,
+    goalWeight: r.goalWeight ?? null,
     createdAt: r.createdAt.toISOString(),
     roundCategories: r.roundCategories.map((c: RoundCategoryRow) => ({
       categoryId: c.categoryId,
@@ -80,6 +91,11 @@ export async function GET(
       categoryId: e.categoryId,
       date: ymd(e.date),
       status: e.status,
+    })),
+    weightEntries: r.weightEntries.map((w: WeightRow) => ({
+      weekIndex: w.weekIndex,
+      weight: w.weight,
+      date: ymd(w.date),
     })),
   }));
 

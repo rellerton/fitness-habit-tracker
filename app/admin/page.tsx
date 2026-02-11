@@ -32,7 +32,8 @@ export default function AdminPage() {
   const [catName, setCatName] = useState("");
   const [catDaysOff, setCatDaysOff] = useState<number>(0);
   const [applyCatToExisting, setApplyCatToExisting] = useState(false);
-  const [busy, setBusy] = useState<"person" | "category" | null>(null);
+  const [busy, setBusy] = useState<"person" | "category" | "settings" | null>(null);
+  const [weightUnit, setWeightUnit] = useState<"LBS" | "KG">("LBS");
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const [roundsByPerson, setRoundsByPerson] = useState<Record<string, RoundHistoryItem[]>>({});
@@ -77,9 +78,10 @@ export default function AdminPage() {
   }
 
   async function refresh() {
-    const [p, c] = await Promise.all([
+    const [p, c, s] = await Promise.all([
       fetchJson("people"),
       fetchJson("categories"),
+      fetchJson("settings"),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
@@ -87,6 +89,9 @@ export default function AdminPage() {
     const catsArr = Array.isArray(c) ? c : [];
     catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     setCats(catsArr);
+    if (s?.weightUnit === "KG" || s?.weightUnit === "LBS") {
+      setWeightUnit(s.weightUnit);
+    }
   }
 
   useEffect(() => {
@@ -296,6 +301,23 @@ export default function AdminPage() {
     } catch (e) {
       console.error(e);
       alert(`Delete failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function saveSettings() {
+    setBusy("settings");
+    try {
+      await fetchJson("settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weightUnit }),
+      });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to save settings: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setBusy(null);
     }
@@ -618,6 +640,39 @@ export default function AdminPage() {
           </div>
         </section>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-100">Settings</h2>
+          <span className="rounded-full border border-white/10 bg-[#111111]/30 px-2.5 py-1 text-xs text-slate-300">
+            App
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-xs">
+            <label className="text-sm font-medium text-slate-200">Weight unit</label>
+            <select
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+              value={weightUnit}
+              onChange={(e) => setWeightUnit(e.target.value as "LBS" | "KG")}
+              style={{ colorScheme: "dark" }}
+              disabled={busy !== null}
+            >
+              <option className="bg-[#111111] text-slate-100" value="LBS">Lbs</option>
+              <option className="bg-[#111111] text-slate-100" value="KG">Kg</option>
+            </select>
+          </div>
+
+          <button
+            onClick={saveSettings}
+            disabled={busy !== null}
+            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy === "settings" ? "Saving..." : "Save settings"}
+          </button>
+        </div>
+      </section>
 
       {editPersonOpen && editPersonTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">

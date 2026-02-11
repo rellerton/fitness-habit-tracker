@@ -110,19 +110,46 @@ export async function PATCH(
 
   const body = await req.json().catch(() => null);
   const startDateInput = body?.startDate;
+  const goalWeightInput = body?.goalWeight as number | string | undefined;
 
-  if (!startDateInput || typeof startDateInput !== "string") {
-    return NextResponse.json({ error: "startDate is required" }, { status: 400 });
-  }
-
-  let nextStart: Date;
-  try {
-    nextStart = parseLocalDay(startDateInput);
-  } catch (error) {
+  if (
+    (startDateInput === undefined || startDateInput === null) &&
+    (goalWeightInput === undefined || goalWeightInput === null || goalWeightInput === "")
+  ) {
     return NextResponse.json(
-      { error: (error as Error).message ?? "Invalid startDate" },
+      { error: "startDate or goalWeight is required" },
       { status: 400 }
     );
+  }
+
+  let nextStart: Date | null = null;
+  if (startDateInput !== undefined && startDateInput !== null) {
+    if (typeof startDateInput !== "string") {
+      return NextResponse.json({ error: "startDate must be a string" }, { status: 400 });
+    }
+    try {
+      nextStart = parseLocalDay(startDateInput);
+    } catch (error) {
+      return NextResponse.json(
+        { error: (error as Error).message ?? "Invalid startDate" },
+        { status: 400 }
+      );
+    }
+  }
+
+  let goalWeight: number | null | undefined;
+  if (goalWeightInput !== undefined && goalWeightInput !== null && goalWeightInput !== "") {
+    const parsed =
+      typeof goalWeightInput === "string" ? Number(goalWeightInput) : goalWeightInput;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return NextResponse.json(
+        { error: "goalWeight must be a number > 0" },
+        { status: 400 }
+      );
+    }
+    goalWeight = parsed;
+  } else if (goalWeightInput === null || goalWeightInput === "") {
+    goalWeight = null;
   }
 
   const round = await prisma.round.findUnique({
@@ -135,14 +162,20 @@ export async function PATCH(
   }
 
   const currentStart = parseLocalDay(ymd(round.startDate));
-  const deltaDays = Math.round(
-    (nextStart.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000)
-  );
+  const deltaDays =
+    nextStart === null
+      ? 0
+      : Math.round(
+          (nextStart.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000)
+        );
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.round.update({
       where: { id: roundId },
-      data: { startDate: nextStart },
+      data: {
+        ...(nextStart ? { startDate: nextStart } : {}),
+        ...(goalWeight !== undefined ? { goalWeight } : {}),
+      },
     });
 
     if (deltaDays === 0 || round.entries.length === 0) return;
@@ -168,7 +201,11 @@ export async function PATCH(
   });
 
   return NextResponse.json(
-    { ok: true, startDate: ymd(nextStart), shiftedDays: deltaDays },
+    {
+      ok: true,
+      startDate: nextStart ? ymd(nextStart) : ymd(round.startDate),
+      shiftedDays: deltaDays,
+    },
     { status: 200 }
   );
 }

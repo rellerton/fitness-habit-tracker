@@ -1,9 +1,17 @@
 # Changelog
 
+## v2.1.0
+
+- Weights: add weekly weight tracking per round with editable per-week entries.
+- Weights: show weight value in week headers and tooltips, plus in the mobile week overlay.
+- Weights: new compact weight-by-week chart with goal line support (active + history).
+- Rounds: add optional goal weight when starting or editing a round.
+- Settings: add App Settings for weight units (Lbs/Kg) and use the selected unit in charts and labels.
+- Categories: delete modal can remove category data from active rounds.
+
 ## v2.0.4
 
 - UI: remove “copy sidebar URL” actions (ingress links were unreliable).
-- Categories: delete modal can remove category data from active rounds.
 
 ## v2.0.3
 

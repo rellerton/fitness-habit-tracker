@@ -11,13 +11,16 @@ import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 type Person = { id: string; name: string };
 
 type Category = { categoryId: string; displayName: string; allowDaysOffPerWeek?: number };
+type WeightUnit = "LBS" | "KG";
 
 type RoundPayload = {
   id: string;
   startDate: string;
   lengthWeeks: number;
+  goalWeight: number | null;
   roundCategories: Category[];
   entries: { categoryId: string; date: string; status: string }[];
+  weightEntries: { weekIndex: number; weight: number; date: string }[];
 };
 
 type LatestRoundResponse = {
@@ -29,11 +32,13 @@ type RoundHistoryItem = {
   id: string;
   startDate: string;
   lengthWeeks: number;
+  goalWeight: number | null;
   active: boolean;
   createdAt: string;
   roundNumber: number;
   roundCategories: Category[];
   entries: { categoryId: string; date: string; status: string }[];
+  weightEntries: { weekIndex: number; weight: number; date: string }[];
 };
 
 function yyyyMmDd(d: Date) {
@@ -90,11 +95,190 @@ function addDays(isoStart: string, daysToAdd: number) {
   return d;
 }
 
+function weekIndexForDate(dateStr: string, roundStart: string, lengthWeeks: number) {
+  if (!dateStr || !roundStart) return null;
+  const date = parseLocalDay(dateStr);
+  const start = parseLocalDay(roundStart);
+  const diffDays = Math.floor((date.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < 0 || diffDays >= lengthWeeks * 7) return null;
+  return Math.floor(diffDays / 7);
+}
+
 function formatShort(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(2);
   return `${mm}/${dd}/${yy}`;
+}
+
+function WeightChart({
+  lengthWeeks,
+  weightEntries,
+  title = "Weight by week",
+  goalWeight,
+  weightUnit,
+}: {
+  lengthWeeks: number;
+  weightEntries: { weekIndex: number; weight: number }[];
+  title?: string;
+  goalWeight?: number | null;
+  weightUnit: WeightUnit;
+}) {
+  if (!weightEntries || weightEntries.length === 0) return null;
+
+  const byWeek = new Map<number, number>();
+  for (const w of weightEntries) {
+    if (Number.isFinite(w.weight)) byWeek.set(w.weekIndex, w.weight);
+  }
+  if (byWeek.size === 0) return null;
+
+  const points = Array.from({ length: lengthWeeks }, (_, idx) => ({
+    week: idx,
+    weight: byWeek.get(idx),
+  })).filter((p) => p.weight !== undefined) as { week: number; weight: number }[];
+
+  if (points.length === 0) return null;
+
+  const values = points.map((p) => p.weight);
+  if (goalWeight !== undefined && goalWeight !== null && Number.isFinite(goalWeight)) {
+    values.push(goalWeight);
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max(1, (max - min) * 0.15);
+  const yMin = min - pad;
+  const yMax = max + pad;
+
+  const width = 760;
+  const height = 110;
+  const padding = 16;
+  const usableW = width - padding * 2;
+  const usableH = height - padding * 2;
+
+  const xForWeek = (week: number) =>
+    padding + (lengthWeeks <= 1 ? 0 : (week / (lengthWeeks - 1)) * usableW);
+  const yForWeight = (weight: number) =>
+    padding + (1 - (weight - yMin) / (yMax - yMin || 1)) * usableH;
+
+  const pathD = points
+    .map((p, idx) => {
+      const x = xForWeek(p.week);
+      const y = yForWeight(p.weight);
+      return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+
+  const latest = points[points.length - 1];
+  const earliest = points[0];
+  const goalY =
+    goalWeight !== undefined && goalWeight !== null && Number.isFinite(goalWeight)
+      ? yForWeight(goalWeight)
+      : null;
+  const fillPath = `${pathD} L ${xForWeek(latest.week)} ${height - padding} L ${xForWeek(earliest.week)} ${height - padding} Z`;
+
+  const unitLabel = weightUnit === "KG" ? "kg" : "lbs";
+
+  return (
+    <div className="mt-5 w-full max-w-[900px] mx-auto">
+      <div className="mb-3 h-px w-full bg-white/10" />
+      <div className="flex items-center justify-between px-1">
+        <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+        <div className="text-xs text-slate-400">
+          {points.length}/{lengthWeeks} weeks
+        </div>
+      </div>
+      <div className="mt-2">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-[110px] w-full"
+          role="img"
+          aria-label="Weight by week chart"
+        >
+          <defs>
+            <linearGradient id="weightLine" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="rgba(56,189,248,0.9)" />
+              <stop offset="100%" stopColor="rgba(34,197,94,0.85)" />
+            </linearGradient>
+            <linearGradient id="weightFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(56,189,248,0.2)" />
+              <stop offset="100%" stopColor="rgba(17,17,17,0.0)" />
+            </linearGradient>
+          </defs>
+
+          <rect
+            x={padding}
+            y={padding}
+            width={usableW}
+            height={usableH}
+            rx={12}
+            fill="rgba(255,255,255,0.03)"
+            stroke="rgba(255,255,255,0.08)"
+          />
+          <path
+            d={`M ${padding} ${height - padding} L ${width - padding} ${height - padding}`}
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={1}
+          />
+          <path d={fillPath} fill="url(#weightFill)" />
+          {goalY !== null && (
+            <g>
+              <line
+                x1={padding}
+                y1={goalY}
+                x2={width - padding}
+                y2={goalY}
+                stroke="rgba(251,191,36,0.65)"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+              />
+              <text
+                x={width - padding}
+                y={Math.max(padding + 10, goalY - 6)}
+                textAnchor="end"
+                fontSize={10}
+                fill="rgba(251,191,36,0.85)"
+              >
+                Goal {goalWeight!.toFixed(1)} {unitLabel}
+              </text>
+            </g>
+          )}
+          <path
+            d={pathD}
+            fill="none"
+            stroke="url(#weightLine)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {points.map((p) => {
+            const x = xForWeek(p.week);
+            const y = yForWeight(p.weight);
+            return (
+              <circle key={`pt-${p.week}`} cx={x} cy={y} r={3} fill="rgba(226,232,240,0.9)" />
+            );
+          })}
+          <text
+            x={padding}
+            y={padding + 2}
+            textAnchor="start"
+            fontSize={10}
+            fill="rgba(148,163,184,0.8)"
+          >
+          {earliest.weight.toFixed(1)} {unitLabel}
+          </text>
+          <text
+            x={width - padding}
+            y={padding + 2}
+            textAnchor="end"
+            fontSize={10}
+            fill="rgba(148,163,184,0.8)"
+          >
+          {latest.weight.toFixed(1)} {unitLabel}
+          </text>
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 function calcTotalPercent(
@@ -130,6 +314,7 @@ export default function PersonPage() {
   const ingressPrefix = useIngressPrefix();
 
   const [person, setPerson] = useState<Person | null>(null);
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>("LBS");
 
   const [round, setRound] = useState<RoundPayload | null>(null);
   const [roundNumber, setRoundNumber] = useState<number>(0);
@@ -138,6 +323,11 @@ export default function PersonPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [weightModalOpen, setWeightModalOpen] = useState(false);
+  const [weightModalWeekIdx, setWeightModalWeekIdx] = useState<number | null>(null);
+  const [weightModalDateInput, setWeightModalDateInput] = useState<string>("");
+  const [weightModalValueInput, setWeightModalValueInput] = useState<string>("");
+  const [weightSaving, setWeightSaving] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; roundNumber: number } | null>(null);
@@ -204,18 +394,36 @@ export default function PersonPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [startDateInput, setStartDateInput] = useState<string>(() => yyyyMmDd(new Date()));
   const [roundLengthWeeks, setRoundLengthWeeks] = useState<number>(8);
+  const [goalWeightInput, setGoalWeightInput] = useState<string>("");
   const [editStartOpen, setEditStartOpen] = useState(false);
   const [editStartDateInput, setEditStartDateInput] = useState<string>("");
+  const [editGoalWeightInput, setEditGoalWeightInput] = useState<string>("");
 
   function openNewRoundPrompt() {
     setStartDateInput(yyyyMmDd(new Date()));
     setRoundLengthWeeks(8);
+    setGoalWeightInput("");
     setConfirmOpen(true);
+  }
+
+  async function loadSettings() {
+    const res = await fetch(apiUrl("settings"));
+    const data = await res.json().catch(() => null);
+    if (res.ok && (data?.weightUnit === "LBS" || data?.weightUnit === "KG")) {
+      setWeightUnit(data.weightUnit);
+      return;
+    }
+    console.error("Failed to load settings:", data);
   }
 
   function openEditStartPrompt() {
     if (!round) return;
     setEditStartDateInput(round.startDate);
+    setEditGoalWeightInput(
+      round.goalWeight !== null && round.goalWeight !== undefined
+        ? round.goalWeight.toFixed(1)
+        : ""
+    );
     setEditStartOpen(true);
   }
 
@@ -232,6 +440,16 @@ export default function PersonPage() {
       return;
     }
 
+    let goalWeight: number | undefined;
+    if (goalWeightInput.trim() !== "") {
+      const parsed = Number(goalWeightInput);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        alert("Goal weight must be a number > 0.");
+        return;
+      }
+      goalWeight = parsed;
+    }
+
     setLoading(true);
 
     const res = await fetch(apiUrl("rounds/start"), {
@@ -241,6 +459,7 @@ export default function PersonPage() {
         personId,
         startDate: startDateInput,
         lengthWeeks: roundLengthWeeks,
+        ...(goalWeight !== undefined ? { goalWeight } : {}),
       }),
     });
 
@@ -266,12 +485,27 @@ export default function PersonPage() {
       return;
     }
 
+    let goalWeight: number | null | undefined;
+    if (editGoalWeightInput.trim() !== "") {
+      const parsed = Number(editGoalWeightInput);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        alert("Goal weight must be a number > 0.");
+        return;
+      }
+      goalWeight = parsed;
+    } else {
+      goalWeight = null;
+    }
+
     setLoading(true);
 
     const res = await fetch(apiUrl(`rounds/${round.id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: editStartDateInput }),
+      body: JSON.stringify({
+        startDate: editStartDateInput,
+        goalWeight,
+      }),
     });
 
     const updated = await res.json().catch(() => null);
@@ -292,6 +526,7 @@ export default function PersonPage() {
     loadPerson();
     loadLatestRound();
     loadRoundHistory();
+    loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
 
@@ -329,6 +564,62 @@ export default function PersonPage() {
     // optional: keep history in sync if you want (not required since history excludes active)
   }
 
+  async function saveWeight() {
+    if (!round || weightModalWeekIdx === null) return;
+
+    const weight = Number(weightModalValueInput);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      alert("Enter a valid weight greater than 0.");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weightModalDateInput)) {
+      alert("Please pick a valid date.");
+      return;
+    }
+
+    const weekIdx = weightModalWeekIdx;
+    const weekStart = addDays(round.startDate, weekIdx * 7);
+    const weekEnd = addDays(round.startDate, weekIdx * 7 + 6);
+    const picked = parseLocalDay(weightModalDateInput);
+    if (picked < weekStart || picked > weekEnd) {
+      alert("Pick a date within this week.");
+      return;
+    }
+
+    setWeightSaving(true);
+    try {
+      const res = await fetch(apiUrl("weights"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roundId: round.id,
+          date: weightModalDateInput,
+          weight,
+        }),
+      });
+
+      const updated = await res.json().catch(() => null);
+      if (!res.ok) {
+        console.error("Weight update failed:", updated);
+        alert(`Weight update failed: ${updated?.error ?? "Unknown error"}`);
+        return;
+      }
+
+      setRound((prev) => {
+        if (!prev) return prev;
+        const nextEntries = (prev.weightEntries ?? []).filter(
+          (w) => w.weekIndex !== updated.weekIndex
+        );
+        nextEntries.push(updated);
+        return { ...prev, weightEntries: nextEntries };
+      });
+      setWeightModalOpen(false);
+    } finally {
+      setWeightSaving(false);
+    }
+  }
+
   function openDeletePrompt(id: string, roundNumber: number) {
     setDeleteTarget({ id, roundNumber });
     setDeleteConfirmOpen(true);
@@ -364,6 +655,27 @@ export default function PersonPage() {
     if (!round) return history.filter((r) => !r.active);
     return history.filter((r) => r.id !== round.id); // exclude current even if active flag is weird
   }, [history, round]);
+
+  const weightWeekRange = useMemo(() => {
+    if (!round || weightModalWeekIdx === null) return null;
+    const start = addDays(round.startDate, weightModalWeekIdx * 7);
+    const end = addDays(round.startDate, weightModalWeekIdx * 7 + 6);
+    return {
+      start,
+      end,
+      label: `${formatShort(start)} - ${formatShort(end)}`,
+    };
+  }, [round, weightModalWeekIdx]);
+
+  function openWeightModal(weekIdx: number) {
+    if (!round) return;
+    const existing = round.weightEntries?.find((w) => w.weekIndex === weekIdx);
+    const weekStart = addDays(round.startDate, weekIdx * 7);
+    setWeightModalWeekIdx(weekIdx);
+    setWeightModalDateInput(existing?.date ?? yyyyMmDd(weekStart));
+    setWeightModalValueInput(existing ? existing.weight.toFixed(1) : "");
+    setWeightModalOpen(true);
+  }
 
   const confirmModal = confirmOpen ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -415,6 +727,20 @@ export default function PersonPage() {
             style={{ colorScheme: "dark" }}
           />
         </div>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Goal weight</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                value={goalWeightInput}
+                onChange={(e) => setGoalWeightInput(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+                placeholder={`Optional (${weightUnit === "KG" ? "kg" : "lbs"})`}
+              />
+            </div>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
@@ -511,14 +837,14 @@ export default function PersonPage() {
                 ← People
               </Link>
 
-              <button
-                onClick={openEditStartPrompt}
-                disabled={loading}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                title="Edit the start date (shifts all entries)"
-              >
-                Edit Start Date
-              </button>
+            <button
+              onClick={openEditStartPrompt}
+              disabled={loading}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Edit start date or goal weight"
+            >
+              Edit Round
+            </button>
             </>
           )}
 
@@ -541,7 +867,17 @@ export default function PersonPage() {
         lengthWeeks={round.lengthWeeks}
         categories={round.roundCategories}
         entries={round.entries}
+        weightEntries={round.weightEntries}
+        weightUnit={weightUnit}
+        onWeekWeightClick={openWeightModal}
         onCellClick={cycle}
+      />
+
+      <WeightChart
+        lengthWeeks={round.lengthWeeks}
+        weightEntries={round.weightEntries ?? []}
+        goalWeight={round.goalWeight ?? null}
+        weightUnit={weightUnit}
       />
 
       <StatusLegend />
@@ -703,8 +1039,83 @@ export default function PersonPage() {
                 lengthWeeks={openRound.lengthWeeks}
                 categories={openRound.roundCategories}
                 entries={openRound.entries}
+                weightEntries={openRound.weightEntries}
+                weightUnit={weightUnit}
                 onCellClick={() => {}}
               />
+            </div>
+            <WeightChart
+              lengthWeeks={openRound.lengthWeeks}
+              weightEntries={openRound.weightEntries ?? []}
+              title="Weight by week (history)"
+              goalWeight={openRound.goalWeight ?? null}
+              weightUnit={weightUnit}
+            />
+          </div>
+        </div>
+      )}
+
+      {weightModalOpen && weightModalWeekIdx !== null && round && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => !weightSaving && setWeightModalOpen(false)}
+          />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">
+              Week {weightModalWeekIdx + 1} weight
+            </h3>
+            {weightWeekRange && (
+              <p className="mt-1 text-sm text-slate-400">
+                {weightWeekRange.label}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-slate-400">
+              One entry per week. You can choose any day within this week.
+            </p>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Date</label>
+              <input
+                type="date"
+                value={weightModalDateInput}
+                min={weightWeekRange ? yyyyMmDd(weightWeekRange.start) : undefined}
+                max={weightWeekRange ? yyyyMmDd(weightWeekRange.end) : undefined}
+                onChange={(e) => setWeightModalDateInput(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+                style={{ colorScheme: "dark" }}
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Weight</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                value={weightModalValueInput}
+                onChange={(e) => setWeightModalValueInput(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+                placeholder={`e.g., 182.4 (${weightUnit === "KG" ? "kg" : "lbs"})`}
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setWeightModalOpen(false)}
+                disabled={weightSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                onClick={saveWeight}
+                disabled={weightSaving}
+              >
+                {weightSaving ? "Saving..." : "Save weight"}
+              </button>
             </div>
           </div>
         </div>
@@ -732,6 +1143,19 @@ export default function PersonPage() {
                   className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
                   style={{ colorScheme: "dark" }}
                 />
+            </div>
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Goal weight</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                value={editGoalWeightInput}
+                onChange={(e) => setEditGoalWeightInput(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-sky-400/50"
+                placeholder={`Optional (${weightUnit === "KG" ? "kg" : "lbs"})`}
+              />
             </div>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
