@@ -388,6 +388,17 @@ export default function RoundWheel({
         })()
       : null;
 
+  useEffect(() => {
+    const handlePointerDown = () => {
+      if (pinnedWeekIdx !== null) setPinnedWeekIdx(null);
+      if (hoverWeekIdx !== null) setHoverWeekIdx(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [pinnedWeekIdx, hoverWeekIdx]);
+
   return (
     <div className="w-full">
       <div className="relative mx-auto w-full max-w-[900px]">
@@ -501,15 +512,16 @@ export default function RoundWheel({
                   onMouseLeave={() => {
                     if (pinnedWeekIdx === null) setHoverWeekIdx(null);
                   }}
-                  onClick={() => {
-                    setPinnedWeekIdx((prev) => (prev === w ? null : w));
-                    setHoverWeekIdx(w);
-                  }}
-                >
-                  <textPath href={`#${arcId}`} startOffset="50%">
-                    {label}
-                  </textPath>
-                </text>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedWeekIdx((prev) => (prev === w ? null : w));
+                  setHoverWeekIdx(w);
+                }}
+              >
+                <textPath href={`#${arcId}`} startOffset="50%">
+                  {label}
+                </textPath>
+              </text>
                 {onWeekWeightClick && (
                   <g
                     className="cursor-pointer"
@@ -523,23 +535,23 @@ export default function RoundWheel({
                     <circle
                       cx={iconPos.x}
                       cy={iconPos.y}
-                      r={10}
+                      r={14}
                       fill="transparent"
                       stroke="none"
                     />
                     <g
-                      transform={`translate(${iconPos.x - 6}, ${iconPos.y - 6})`}
+                      transform={`translate(${iconPos.x - 7}, ${iconPos.y - 7})`}
                       fill="none"
                       stroke="rgba(226,232,240,0.9)"
-                      strokeWidth={1.2}
+                      strokeWidth={1.4}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       pointerEvents="none"
                     >
                       {/* Simple scale icon */}
-                      <rect x="1.5" y="2.5" width="9" height="8" rx="2" />
-                      <circle cx="6" cy="5" r="1.2" />
-                      <path d="M6 5 L7.2 3.8" />
+                      <rect x="1.5" y="2.5" width="11" height="9" rx="2.4" />
+                      <circle cx="7" cy="5.5" r="1.4" />
+                      <path d="M7 5.5 L9 3.8" />
                     </g>
                   </g>
                 )}
@@ -916,11 +928,22 @@ export default function RoundWheel({
                 <p className="text-xs uppercase tracking-wide text-slate-400">
                   {zoomWeekLabel}
                 </p>
-                {zoomWeekWeight && (
-                  <p className="mt-1 text-xs text-slate-300">
-                    Weight: {zoomWeekWeight.weight.toFixed(1)} {unitLabel(weightUnit)}
-                  </p>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <span>
+                    Weight:{" "}
+                    {zoomWeekWeight
+                      ? `${zoomWeekWeight.weight.toFixed(1)} ${unitLabel(weightUnit)}`
+                      : "—"}
+                  </span>
+                  {onWeekWeightClick && (
+                    <button
+                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-200"
+                      onClick={() => onWeekWeightClick(zoomTarget.weekIdx)}
+                    >
+                      {zoomWeekWeight ? "Edit weight" : "Add weight"}
+                    </button>
+                  )}
+                </div>
                 {zoomWeekDays.length > 0 && (
                   <p className="mt-1 text-xs text-slate-400">
                     {formatMMDD(zoomWeekDays[0])} -{" "}

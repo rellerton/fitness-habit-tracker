@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.1.3
+
+- RoundWheel: clicking anywhere dismisses the week progress popup.
+- RoundWheel: improve weight icon target size and add weight actions in the mobile week overlay.
+
 ## v2.1.2
 
 - RoundWheel: improve weight icon click target.
