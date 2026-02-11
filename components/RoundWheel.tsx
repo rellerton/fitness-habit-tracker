@@ -519,6 +519,14 @@ export default function RoundWheel({
                     }}
                   >
                     <title>Set weight</title>
+                    {/* Larger invisible hit target for easier clicking */}
+                    <circle
+                      cx={iconPos.x}
+                      cy={iconPos.y}
+                      r={10}
+                      fill="transparent"
+                      stroke="none"
+                    />
                     <g
                       transform={`translate(${iconPos.x - 6}, ${iconPos.y - 6})`}
                       fill="none"

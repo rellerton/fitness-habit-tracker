@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.2
+
+- RoundWheel: improve weight icon click target.
+
 ## v2.1.1
 
 - Build: fix weight API type check for production build.
