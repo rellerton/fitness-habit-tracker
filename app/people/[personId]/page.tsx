@@ -64,6 +64,23 @@ function requiredDays(lengthWeeks: number, allowDaysOffPerWeek: number) {
   return Math.max(0, lengthWeeks * weeklyTarget);
 }
 
+function statusScore(status: string) {
+  const st = (status ?? "").toUpperCase();
+  if (st === "DONE") return 1;
+  if (st === "HALF") return 0.5;
+  return 0;
+}
+
+const MS_DAY = 24 * 60 * 60 * 1000;
+
+function completedWeeksForRound(startDate: string, lengthWeeks: number) {
+  const start = parseLocalDay(startDate);
+  const today = parseLocalDay(yyyyMmDd(new Date()));
+  const diffDays = Math.floor((today.getTime() - start.getTime()) / MS_DAY);
+  if (diffDays <= 0) return 0;
+  return Math.min(lengthWeeks, Math.floor(diffDays / 7));
+}
+
 function calcCategoryScore(round: Pick<RoundHistoryItem, "entries">, categoryId: string) {
   let score = 0;
   for (const e of round.entries) {
@@ -109,6 +126,102 @@ function formatShort(d: Date) {
   const dd = String(d.getDate()).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(2);
   return `${mm}/${dd}/${yy}`;
+}
+
+function CompactPct({
+  pct,
+  tone,
+  barWidthClass = "w-16",
+}: {
+  pct: number | null;
+  tone: "total" | "cat";
+  barWidthClass?: string;
+}) {
+  const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
+  return (
+    <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <div className={`h-1.5 ${barWidthClass} rounded-full bg-white/10`}>
+        <div
+          className={`h-1.5 rounded-full ${tone === "total" ? "bg-emerald-400/60" : "bg-sky-400/60"}`}
+          style={{ width: `${clamped.toFixed(0)}%` }}
+        />
+      </div>
+      <span className="w-8 text-right text-xs tabular-nums text-slate-300">
+        {pct === null ? "—" : `${clamped.toFixed(0)}%`}
+      </span>
+    </div>
+  );
+}
+
+function RoundSummaryPanel({
+  round,
+  completedWeeks,
+  title,
+}: {
+  round: Pick<RoundHistoryItem, "startDate" | "lengthWeeks" | "entries" | "roundCategories">;
+  completedWeeks: number;
+  title: string;
+}) {
+  const start = parseLocalDay(round.startDate);
+  const end = addDays(round.startDate, completedWeeks * 7);
+
+  const scores = new Map<string, number>();
+  for (const entry of round.entries) {
+    const d = parseLocalDay(entry.date);
+    if (d < start || d >= end) continue;
+    const score = statusScore(entry.status);
+    if (score <= 0) continue;
+    scores.set(entry.categoryId, (scores.get(entry.categoryId) ?? 0) + score);
+  }
+
+  let totalRequired = 0;
+  let totalScore = 0;
+  const perCategory = round.roundCategories.map((c) => {
+    const allowDaysOff = c.allowDaysOffPerWeek ?? 0;
+    const required = Math.max(0, completedWeeks * (7 - allowDaysOff));
+    totalRequired += required;
+    const score = Math.min(scores.get(c.categoryId) ?? 0, required);
+    totalScore += score;
+    const pct = required > 0 ? (score / required) * 100 : null;
+    return { ...c, pct };
+  });
+
+  const totalPct = totalRequired > 0 ? (totalScore / totalRequired) * 100 : null;
+
+  return (
+    <section className="mt-4 w-full max-w-[900px] mx-auto">
+      <div className="flex items-center justify-between gap-4 px-1">
+        <div>
+          <div className="text-sm font-semibold text-slate-200">{title}</div>
+          <div className="text-xs text-slate-400">
+            {completedWeeks === 0
+              ? "No completed weeks yet."
+              : `Through week ${completedWeeks}`}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">Total</span>
+          <CompactPct pct={totalPct} tone="total" />
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {perCategory.map((c) => (
+          <div
+            key={c.categoryId}
+            className="flex items-center justify-between px-2 py-1.5"
+          >
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-200">
+                {c.displayName}
+              </div>
+            </div>
+            <CompactPct pct={c.pct} tone="cat" barWidthClass="w-10" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function WeightChart({
@@ -873,6 +986,12 @@ export default function PersonPage() {
         onCellClick={cycle}
       />
 
+      <RoundSummaryPanel
+        round={round}
+        completedWeeks={completedWeeksForRound(round.startDate, round.lengthWeeks)}
+        title="Summary (completed weeks)"
+      />
+
       <WeightChart
         lengthWeeks={round.lengthWeeks}
         weightEntries={round.weightEntries ?? []}
@@ -934,20 +1053,6 @@ export default function PersonPage() {
                   };
 
                   const totalPct = calcTotalPercent(r);
-
-                  const CompactPct = ({ pct, tone }: { pct: number; tone: "total" | "cat" }) => (
-                    <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <div className="h-1.5 w-14 rounded-full bg-white/10">
-                        <div
-                          className={`h-1.5 rounded-full ${tone === "total" ? "bg-emerald-400/60" : "bg-sky-400/60"}`}
-                          style={{ width: `${pct.toFixed(0)}%` }}
-                        />
-                      </div>
-                      <span className="w-8 text-right text-xs tabular-nums text-slate-300">
-                        {pct.toFixed(0)}%
-                      </span>
-                    </div>
-                  );
 
                   return (
                     <tr key={r.id} className="border-t border-white/10 text-sm text-slate-200">
@@ -1044,6 +1149,11 @@ export default function PersonPage() {
                 onCellClick={() => {}}
               />
             </div>
+            <RoundSummaryPanel
+              round={openRound}
+              completedWeeks={openRound.lengthWeeks}
+              title="Summary (full round)"
+            />
             <WeightChart
               lengthWeeks={openRound.lengthWeeks}
               weightEntries={openRound.weightEntries ?? []}

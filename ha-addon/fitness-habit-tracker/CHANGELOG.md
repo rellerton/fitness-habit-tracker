@@ -1,9 +1,15 @@
 # Changelog
 
+## v2.1.4
+
+- Active round: add completed-weeks summary panel with cleaner layout.
+- RoundWheel: improve global click-to-dismiss for week progress.
+
 ## v2.1.3
 
 - RoundWheel: clicking anywhere dismisses the week progress popup.
 - RoundWheel: improve weight icon target size and add weight actions in the mobile week overlay.
+- Weights: refine mobile week overlay actions and weight icon hit target.
 
 ## v2.1.2
 
