@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.1.5
+
+- Summary: cap per-week category scoring to avoid over-crediting missed days.
+- Summary: refresh layout styling and spacing for active-round summary.
+
 ## v2.1.4
 
 - Active round: add completed-weeks summary panel with cleaner layout.

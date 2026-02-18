@@ -81,29 +81,104 @@ function completedWeeksForRound(startDate: string, lengthWeeks: number) {
   return Math.min(lengthWeeks, Math.floor(diffDays / 7));
 }
 
-function calcCategoryScore(round: Pick<RoundHistoryItem, "entries">, categoryId: string) {
-  let score = 0;
-  for (const e of round.entries) {
-    if (e.categoryId !== categoryId) continue;
-    const st = (e.status ?? "").toUpperCase();
-    if (st === "DONE") score += 1;
-    else if (st === "HALF") score += 0.5;
+function buildEntryMap(entries: { categoryId: string; date: string; status: string }[]) {
+  const map = new Map<string, Map<string, string>>();
+  for (const entry of entries) {
+    const catMap = map.get(entry.categoryId) ?? new Map<string, string>();
+    catMap.set(entry.date, entry.status);
+    map.set(entry.categoryId, catMap);
   }
-  return score;
+  return map;
+}
+
+function calcCategoryPercentByWeeks({
+  entryMap,
+  startDate,
+  weeksCount,
+  categoryId,
+  allowDaysOffPerWeek,
+}: {
+  entryMap: Map<string, Map<string, string>>;
+  startDate: string;
+  weeksCount: number;
+  categoryId: string;
+  allowDaysOffPerWeek: number;
+}) {
+  if (weeksCount <= 0) return null;
+  if (allowDaysOffPerWeek >= 7) return 100;
+  const required = Math.max(0, 7 - allowDaysOffPerWeek);
+  if (required <= 0) return 100;
+
+  const catMap = entryMap.get(categoryId) ?? new Map<string, string>();
+  let totalPct = 0;
+
+  for (let w = 0; w < weeksCount; w += 1) {
+    let score = 0;
+    for (let d = 0; d < 7; d += 1) {
+      const dateStr = yyyyMmDd(addDays(startDate, w * 7 + d));
+      const status = catMap.get(dateStr) ?? "EMPTY";
+      score += statusScore(status);
+    }
+    const pct = Math.min(score, required) / required;
+    totalPct += Math.max(0, Math.min(1, pct));
+  }
+
+  return (totalPct / weeksCount) * 100;
+}
+
+function calcTotalPercentByWeeks({
+  entryMap,
+  startDate,
+  weeksCount,
+  categories,
+}: {
+  entryMap: Map<string, Map<string, string>>;
+  startDate: string;
+  weeksCount: number;
+  categories: { categoryId: string; allowDaysOffPerWeek?: number }[];
+}) {
+  if (weeksCount <= 0) return null;
+
+  let totalPct = 0;
+
+  for (let w = 0; w < weeksCount; w += 1) {
+    let totalScore = 0;
+    let totalRequired = 0;
+    for (const c of categories) {
+      const required = Math.max(0, 7 - (c.allowDaysOffPerWeek ?? 0));
+      if (required <= 0) continue;
+      totalRequired += required;
+      let score = 0;
+      const catMap = entryMap.get(c.categoryId) ?? new Map<string, string>();
+      for (let d = 0; d < 7; d += 1) {
+        const dateStr = yyyyMmDd(addDays(startDate, w * 7 + d));
+        const status = catMap.get(dateStr) ?? "EMPTY";
+        score += statusScore(status);
+      }
+      totalScore += Math.min(score, required);
+    }
+
+    const weekPct = totalRequired > 0 ? totalScore / totalRequired : 1;
+    totalPct += Math.max(0, Math.min(1, weekPct));
+  }
+
+  return (totalPct / weeksCount) * 100;
 }
 
 function calcCategoryPercent(
-  round: Pick<RoundHistoryItem, "lengthWeeks" | "entries">,
+  round: Pick<RoundHistoryItem, "startDate" | "lengthWeeks" | "entries">,
   categoryId: string,
   allowDaysOffPerWeek: number
 ) {
-  const totalDays = requiredDays(round.lengthWeeks, allowDaysOffPerWeek);
-  if (totalDays <= 0) return 100;
-
-  const score = calcCategoryScore(round, categoryId);
-  const capped = Math.min(score, totalDays);
-  const pct = (capped / totalDays) * 100;
-  return Math.max(0, Math.min(100, pct));
+  const entryMap = buildEntryMap(round.entries);
+  const pct = calcCategoryPercentByWeeks({
+    entryMap,
+    startDate: round.startDate,
+    weeksCount: round.lengthWeeks,
+    categoryId,
+    allowDaysOffPerWeek,
+  });
+  return pct ?? 0;
 }
 
 function addDays(isoStart: string, daysToAdd: number) {
@@ -132,14 +207,16 @@ function CompactPct({
   pct,
   tone,
   barWidthClass = "w-16",
+  gapClass = "gap-1.5",
 }: {
   pct: number | null;
   tone: "total" | "cat";
   barWidthClass?: string;
+  gapClass?: string;
 }) {
   const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
   return (
-    <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+    <div className={`inline-flex items-center whitespace-nowrap ${gapClass}`}>
       <div className={`h-1.5 ${barWidthClass} rounded-full bg-white/10`}>
         <div
           className={`h-1.5 rounded-full ${tone === "total" ? "bg-emerald-400/60" : "bg-sky-400/60"}`}
@@ -162,31 +239,24 @@ function RoundSummaryPanel({
   completedWeeks: number;
   title: string;
 }) {
-  const start = parseLocalDay(round.startDate);
-  const end = addDays(round.startDate, completedWeeks * 7);
-
-  const scores = new Map<string, number>();
-  for (const entry of round.entries) {
-    const d = parseLocalDay(entry.date);
-    if (d < start || d >= end) continue;
-    const score = statusScore(entry.status);
-    if (score <= 0) continue;
-    scores.set(entry.categoryId, (scores.get(entry.categoryId) ?? 0) + score);
-  }
-
-  let totalRequired = 0;
-  let totalScore = 0;
+  const entryMap = buildEntryMap(round.entries);
   const perCategory = round.roundCategories.map((c) => {
-    const allowDaysOff = c.allowDaysOffPerWeek ?? 0;
-    const required = Math.max(0, completedWeeks * (7 - allowDaysOff));
-    totalRequired += required;
-    const score = Math.min(scores.get(c.categoryId) ?? 0, required);
-    totalScore += score;
-    const pct = required > 0 ? (score / required) * 100 : null;
+    const pct = calcCategoryPercentByWeeks({
+      entryMap,
+      startDate: round.startDate,
+      weeksCount: completedWeeks,
+      categoryId: c.categoryId,
+      allowDaysOffPerWeek: c.allowDaysOffPerWeek ?? 0,
+    });
     return { ...c, pct };
   });
 
-  const totalPct = totalRequired > 0 ? (totalScore / totalRequired) * 100 : null;
+  const totalPct = calcTotalPercentByWeeks({
+    entryMap,
+    startDate: round.startDate,
+    weeksCount: completedWeeks,
+    categories: round.roundCategories,
+  });
 
   return (
     <section className="mt-4 w-full max-w-[900px] mx-auto">
@@ -201,24 +271,33 @@ function RoundSummaryPanel({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Total</span>
-          <CompactPct pct={totalPct} tone="total" />
+          <CompactPct pct={totalPct} tone="total" barWidthClass="w-28" />
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {perCategory.map((c) => (
-          <div
-            key={c.categoryId}
-            className="flex items-center justify-between px-2 py-1.5"
-          >
-            <div className="min-w-0">
+      <div className="mt-2 grid grid-cols-1 gap-y-0.5 gap-x-4 sm:grid-cols-2 lg:grid-cols-5">
+        {perCategory.map((c) => {
+          const pct = c.pct === null ? null : Math.max(0, Math.min(100, c.pct));
+          return (
+            <div
+              key={c.categoryId}
+              className="grid grid-cols-[112px,1fr,36px] items-center gap-2 px-1 py-0"
+            >
               <div className="truncate text-sm font-semibold text-slate-200">
-                {c.displayName}
+                {c.displayName}:
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-white/10">
+                <div
+                  className="h-1.5 rounded-full bg-sky-400/60"
+                  style={{ width: `${pct === null ? 0 : pct.toFixed(0)}%` }}
+                />
+              </div>
+              <div className="text-right text-xs tabular-nums text-slate-300">
+                {pct === null ? "—" : `${pct.toFixed(0)}%`}
               </div>
             </div>
-            <CompactPct pct={c.pct} tone="cat" barWidthClass="w-10" />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -395,24 +474,17 @@ function WeightChart({
 }
 
 function calcTotalPercent(
-  r: Pick<RoundHistoryItem, "lengthWeeks" | "entries" | "roundCategories">
+  r: Pick<RoundHistoryItem, "startDate" | "lengthWeeks" | "entries" | "roundCategories">
 ) {
   if (r.roundCategories.length === 0) return 0;
-
-  let totalRequired = 0;
-  let totalScore = 0;
-
-  for (const c of r.roundCategories) {
-    const allowed = c.allowDaysOffPerWeek ?? 0;
-    const required = requiredDays(r.lengthWeeks, allowed);
-    if (required <= 0) continue;
-    const score = calcCategoryScore(r, c.categoryId);
-    totalRequired += required;
-    totalScore += Math.min(score, required);
-  }
-
-  if (totalRequired <= 0) return 100;
-  return Math.max(0, Math.min(100, (totalScore / totalRequired) * 100));
+  const entryMap = buildEntryMap(r.entries);
+  const pct = calcTotalPercentByWeeks({
+    entryMap,
+    startDate: r.startDate,
+    weeksCount: r.lengthWeeks,
+    categories: r.roundCategories,
+  });
+  return pct ?? 0;
 }
 
 function shouldHideControls(v: string | null) {
