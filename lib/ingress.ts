@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 function getIngressPrefixFromPath(pathname: string) {
   const patterns = [
@@ -33,13 +33,8 @@ export function apiUrl(path: string) {
 }
 
 export function useIngressPrefix() {
-  const [prefix, setPrefix] = useState(() =>
+  const [prefix] = useState(() =>
     typeof window === "undefined" ? "" : getIngressPrefix()
   );
-
-  useEffect(() => {
-    setPrefix(getIngressPrefix());
-  }, []);
-
   return prefix;
 }

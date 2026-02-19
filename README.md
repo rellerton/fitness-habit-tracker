@@ -43,57 +43,24 @@ When upgrading to `v3.0.0`, existing data is migrated into a `Default` tracker t
 
 - Existing categories are moved under the `Default` tracker type.
 - Each person gets a `Default` tracker.
-- Existing rounds are linked to that person’s `Default` tracker.
+- Existing rounds are linked to that person's `Default` tracker.
 
 ### Dashboard-friendly view
 
-To show just a person's current round without the control header, open the person page
-and add `?controls=0`:
+To show just a person's current round without the control header, open the person page and add `?controls=0`:
 
 ```
 http://<host>/people/<personId>?controls=0
 ```
 
-## Install with Docker
-
-### 1) Create a data directory on the host
-
-This is where the SQLite DB lives (persisted across container rebuilds).
-
-Example (Synology):
-- `/volume1/docker/fitness-habit-tracker/data`
-
-### 2) Run with docker compose
-
-Create `docker-compose.yaml`:
-
-```yaml
-services:
-  fitness-habit-tracker:
-    image: ghcr.io/rellerton/fitness-habit-tracker:latest
-    container_name: fitness-habit-tracker
-    restart: unless-stopped
-    ports:
-      - "3010:3000"   # host:container (change host port if you want)
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: file:/app/data/dev.db
-    volumes:
-      - /volume1/docker/fitness-habit-tracker/data:/app/data
-```
-
-Then run:
-
-```bash
-docker compose up -d
-```
-
-Open the app at `http://<host>:3010`.
-
 ## Updating
 
 - Home Assistant: update the add-on from the add-on store.
-- Docker: pull the new image and recreate the container.
+
+## Additional Docs
+
+- Docker install guide: [`docs/docker-install.md`](docs/docker-install.md)
+- Development runbook (DB backup/switching + API smoke tests): [`docs/development.md`](docs/development.md)
 
 ## Tech stack
 

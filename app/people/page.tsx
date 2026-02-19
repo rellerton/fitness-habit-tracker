@@ -15,13 +15,26 @@ export default function PeoplePage() {
 
   const [people, setPeople] = useState<Person[]>([]);
 
-  async function refresh() {
-    const p = await fetch(apiUrl("people")).then((r) => r.json());
-    setPeople(p);
-  }
-
   useEffect(() => {
-    refresh();
+    let active = true;
+
+    async function loadPeople() {
+      try {
+        const res = await fetch(apiUrl("people"));
+        const data = await res.json().catch(() => []);
+        if (!active) return;
+        setPeople(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (!active) return;
+        console.error("[PeoplePage] Failed to load people:", error);
+        setPeople([]);
+      }
+    }
+
+    loadPeople();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

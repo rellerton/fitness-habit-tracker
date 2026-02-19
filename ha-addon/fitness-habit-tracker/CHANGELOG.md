@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.1.0
+
+- Quality: resolved lint blockers and warnings so `npm run lint` is clean.
+- Person UI: tracker controls refined; `Add another tracker` is now an inline right-aligned button and visual clarity improved.
+- CI/CD: added normal development CI workflow for `main`/PRs (`lint`, `typecheck`, `build`) separate from tag-based publish workflow.
+- Testing: added lightweight API smoke test command (`npm run test:smoke`) covering create/update/delete flow for person/tracker type/tracker/round.
+- Data integrity: added DB-level guard to enforce `Round.personId` matches selected `Tracker.personId`.
+- Health/ops: added liveness endpoint (`/api/health`) and readiness endpoint (`/api/ready` with DB ping).
+- Containers: added Docker `HEALTHCHECK` using `/api/health`.
+- Home Assistant: added add-on `watchdog` URL to monitor `/api/health`.
+- Documentation: refactored docs to be add-on-first in root README; moved Docker install and development runbook details into `docs/`.
+
 ## v3.0.1
 
 - Person UI: prevent brief tracker-selector flash while loading the initial active tracker/round state.

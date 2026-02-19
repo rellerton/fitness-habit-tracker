@@ -45,7 +45,7 @@ export default function Home() {
 
         <p className="mt-3 max-w-xl text-sm text-slate-400">
           Track daily habits across multiple categories using a circular grid in 4 or 8 week
-          rounds. Start by setting up people and categories, then jump into a person's active
+          rounds. Start by setting up people and categories, then jump into an active
           round.
         </p>
 

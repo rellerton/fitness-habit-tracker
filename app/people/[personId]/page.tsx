@@ -82,11 +82,6 @@ function parseLocalDay(s: string) {
 
 
 
-function requiredDays(lengthWeeks: number, allowDaysOffPerWeek: number) {
-  const weeklyTarget = 7 - allowDaysOffPerWeek;
-  return Math.max(0, lengthWeeks * weeklyTarget);
-}
-
 function statusScore(status: string) {
   const st = (status ?? "").toUpperCase();
   if (st === "DONE") return 1;
@@ -208,15 +203,6 @@ function addDays(isoStart: string, daysToAdd: number) {
   const d = parseLocalDay(isoStart);
   d.setDate(d.getDate() + daysToAdd);
   return d;
-}
-
-function weekIndexForDate(dateStr: string, roundStart: string, lengthWeeks: number) {
-  if (!dateStr || !roundStart) return null;
-  const date = parseLocalDay(dateStr);
-  const start = parseLocalDay(roundStart);
-  const diffDays = Math.floor((date.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-  if (diffDays < 0 || diffDays >= lengthWeeks * 7) return null;
-  return Math.floor(diffDays / 7);
 }
 
 function formatShort(d: Date) {
@@ -1168,25 +1154,36 @@ export default function PersonPage() {
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
             {showTrackerSwitcher ? "Active tracker" : "Tracker"}
           </div>
-          {showTrackerSwitcher ? (
-            <select
-              className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
-              value={selectedTrackerId}
-              onChange={(e) => setSelectedTrackerId(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              disabled={trackers.length === 0 || loading || trackerBusy}
-            >
-              {trackers.map((t) => (
-                <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
-                  {formatTrackerLabel(t)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="mt-2 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
-              {formatTrackerLabel(selectedTracker)}
-            </div>
-          )}
+          <div className="mt-2 flex items-center gap-2">
+            {showTrackerSwitcher ? (
+              <select
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+                value={selectedTrackerId}
+                onChange={(e) => setSelectedTrackerId(e.target.value)}
+                style={{ colorScheme: "dark" }}
+                disabled={trackers.length === 0 || loading || trackerBusy}
+              >
+                {trackers.map((t) => (
+                  <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
+                    {formatTrackerLabel(t)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
+                {formatTrackerLabel(selectedTracker)}
+              </div>
+            )}
+            {!hideControls && trackers.length > 0 && (
+              <button
+                onClick={() => setShowAddTrackerControls((prev) => !prev)}
+                disabled={trackerBusy || loading}
+                className="inline-flex shrink-0 whitespace-nowrap items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+              >
+                {showAddTrackerPanel ? "Cancel" : "Add another tracker"}
+              </button>
+            )}
+          </div>
 
           <button
             onClick={openNewRoundPrompt}
@@ -1195,16 +1192,6 @@ export default function PersonPage() {
           >
             {loading ? "Starting..." : "Start New Round"}
           </button>
-
-          {!hideControls && trackers.length > 0 && (
-            <button
-              onClick={() => setShowAddTrackerControls((prev) => !prev)}
-              disabled={trackerBusy || loading}
-              className="mt-3 text-xs font-semibold text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
-            >
-              {showAddTrackerPanel ? "Cancel adding tracker" : "Add another tracker"}
-            </button>
-          )}
 
           {showAddTrackerPanel && (
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto]">
@@ -1303,35 +1290,36 @@ export default function PersonPage() {
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
             {showTrackerSwitcher ? "Active tracker" : "Tracker"}
           </div>
-          {showTrackerSwitcher ? (
-            <select
-              className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
-              value={selectedTrackerId}
-              onChange={(e) => setSelectedTrackerId(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              disabled={trackers.length === 0 || loading || trackerBusy}
-            >
-              {trackers.map((t) => (
-                <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
-                  {formatTrackerLabel(t)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="mt-2 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
-              {formatTrackerLabel(selectedTracker)}
-            </div>
-          )}
-
-          {!hideControls && trackers.length > 0 && (
-            <button
-              onClick={() => setShowAddTrackerControls((prev) => !prev)}
-              disabled={trackerBusy || loading}
-              className="mt-3 text-xs font-semibold text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
-            >
-              {showAddTrackerPanel ? "Cancel adding tracker" : "Add another tracker"}
-            </button>
-          )}
+          <div className="mt-2 flex items-center gap-2">
+            {showTrackerSwitcher ? (
+              <select
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+                value={selectedTrackerId}
+                onChange={(e) => setSelectedTrackerId(e.target.value)}
+                style={{ colorScheme: "dark" }}
+                disabled={trackers.length === 0 || loading || trackerBusy}
+              >
+                {trackers.map((t) => (
+                  <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
+                    {formatTrackerLabel(t)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
+                {formatTrackerLabel(selectedTracker)}
+              </div>
+            )}
+            {!hideControls && trackers.length > 0 && (
+              <button
+                onClick={() => setShowAddTrackerControls((prev) => !prev)}
+                disabled={trackerBusy || loading}
+                className="inline-flex shrink-0 whitespace-nowrap items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+              >
+                {showAddTrackerPanel ? "Cancel" : "Add another tracker"}
+              </button>
+            )}
+          </div>
 
           {showAddTrackerPanel && (
             <div className="mt-3 grid grid-cols-[1fr,auto] gap-2">

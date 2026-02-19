@@ -27,6 +27,7 @@
   "build": "prisma generate && next build",
   "dev": "next dev",
   "lint": "eslint",
+  "test:smoke": "node --test tests/api-smoke.test.mjs",
   "db:init": "npx prisma migrate dev --name init && npm run seed",
   "db:deploy": "prisma generate && prisma migrate deploy",
   "start": "next start"

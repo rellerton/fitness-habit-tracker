@@ -246,19 +246,6 @@ export default function RoundWheel({
     return () => media.removeListener(update);
   }, []);
 
-  useEffect(() => {
-    if (!isSmallScreen) setZoomTarget(null);
-  }, [isSmallScreen]);
-
-  useEffect(() => {
-    if (pinnedWeekIdx !== null && pinnedWeekIdx >= lengthWeeks) {
-      setPinnedWeekIdx(null);
-    }
-    if (hoverWeekIdx !== null && hoverWeekIdx >= lengthWeeks) {
-      setHoverWeekIdx(null);
-    }
-  }, [lengthWeeks, pinnedWeekIdx, hoverWeekIdx]);
-
 
   const entryMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -350,12 +337,19 @@ export default function RoundWheel({
   const TODAY_STROKE = "rgba(250,204,21,0.95)"; // amber/yellow
   const TODAY_GLOW = "rgba(250,204,21,0.25)";
 
-  const zoomWeekDays = zoomTarget
-    ? days.slice(zoomTarget.weekIdx * 7, zoomTarget.weekIdx * 7 + 7)
+  const activeZoomTarget =
+    isSmallScreen && zoomTarget && zoomTarget.weekIdx < lengthWeeks ? zoomTarget : null;
+  const activePinnedWeekIdx =
+    pinnedWeekIdx !== null && pinnedWeekIdx < lengthWeeks ? pinnedWeekIdx : null;
+  const activeHoverWeekIdx =
+    hoverWeekIdx !== null && hoverWeekIdx < lengthWeeks ? hoverWeekIdx : null;
+
+  const zoomWeekDays = activeZoomTarget
+    ? days.slice(activeZoomTarget.weekIdx * 7, activeZoomTarget.weekIdx * 7 + 7)
     : [];
-  const zoomWeekLabel = zoomTarget ? `Week ${zoomTarget.weekIdx + 1}` : "";
-  const zoomWeekWeight = zoomTarget ? weightByWeekIdx.get(zoomTarget.weekIdx) : undefined;
-  const tooltipWeekIdx = pinnedWeekIdx ?? hoverWeekIdx;
+  const zoomWeekLabel = activeZoomTarget ? `Week ${activeZoomTarget.weekIdx + 1}` : "";
+  const zoomWeekWeight = activeZoomTarget ? weightByWeekIdx.get(activeZoomTarget.weekIdx) : undefined;
+  const tooltipWeekIdx = activePinnedWeekIdx ?? activeHoverWeekIdx;
   const tooltipWeight = tooltipWeekIdx !== null ? weightByWeekIdx.get(tooltipWeekIdx) : undefined;
 
   function getWeekPercent(weekIdx: number, cat: Category) {
@@ -390,14 +384,14 @@ export default function RoundWheel({
 
   useEffect(() => {
     const handlePointerDown = () => {
-      if (pinnedWeekIdx !== null) setPinnedWeekIdx(null);
-      if (hoverWeekIdx !== null) setHoverWeekIdx(null);
+      if (activePinnedWeekIdx !== null) setPinnedWeekIdx(null);
+      if (activeHoverWeekIdx !== null) setHoverWeekIdx(null);
     };
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, true);
     };
-  }, [pinnedWeekIdx, hoverWeekIdx]);
+  }, [activePinnedWeekIdx, activeHoverWeekIdx]);
 
   return (
     <div className="w-full">
@@ -510,7 +504,7 @@ export default function RoundWheel({
                   className="cursor-pointer"
                   onMouseEnter={() => setHoverWeekIdx(w)}
                   onMouseLeave={() => {
-                    if (pinnedWeekIdx === null) setHoverWeekIdx(null);
+                    if (activePinnedWeekIdx === null) setHoverWeekIdx(null);
                   }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -916,7 +910,7 @@ export default function RoundWheel({
         )}
       </div>
 
-      {isSmallScreen && zoomTarget && (
+      {isSmallScreen && activeZoomTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/70"
@@ -938,7 +932,7 @@ export default function RoundWheel({
                   {onWeekWeightClick && (
                     <button
                       className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-200"
-                      onClick={() => onWeekWeightClick(zoomTarget.weekIdx)}
+                      onClick={() => onWeekWeightClick(activeZoomTarget.weekIdx)}
                     >
                       {zoomWeekWeight ? "Edit weight" : "Add weight"}
                     </button>
