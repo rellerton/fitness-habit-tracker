@@ -4,8 +4,11 @@ A lightweight, self-hosted habit tracker built with Next.js and Prisma using a l
 
 ## What it does
 
-- Track habits by person and category
-- Organize tracking into multi-week rounds
+- Track habits by person with one or more active trackers
+- Define global tracker types (for example, `Default`, `Kids Tracker`, `Nutrition`)
+- Manage categories per tracker type (same category workflows, now scoped by type)
+- Organize tracking into 4-week or 8-week rounds per tracker
+- Preserve historical rounds when a tracker is removed from a person
 - Visual Round Wheel for fast daily checkoffs
 
 ## Install in Home Assistant (Ingress)
@@ -29,9 +32,18 @@ This is useful for iframe dashboards where ingress tokens change.
 
 ## How to use
 
-1. Open **Admin** to add people and categories.
-2. Go to **People**, then select a person.
-3. Start a new round to begin tracking.
+1. Open **Admin** to add people.
+2. In **Tracker Types & Categories**, create tracker types and their categories.
+3. Go to **People**, open a person, and add one or more trackers.
+4. Select a tracker and start a new round to begin tracking.
+
+### Existing installs (upgrade behavior)
+
+When upgrading to `v3.0.0`, existing data is migrated into a `Default` tracker type model:
+
+- Existing categories are moved under the `Default` tracker type.
+- Each person gets a `Default` tracker.
+- Existing rounds are linked to that person’s `Default` tracker.
 
 ### Dashboard-friendly view
 
