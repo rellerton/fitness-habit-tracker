@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.0.1
+
+- Person UI: prevent brief tracker-selector flash while loading the initial active tracker/round state.
+
 ## v3.0.0
 
 - Major feature: add global `Tracker Types` and person-level `Trackers` (one or more active trackers per person).

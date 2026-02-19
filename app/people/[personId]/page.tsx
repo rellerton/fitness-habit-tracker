@@ -532,8 +532,10 @@ export default function PersonPage() {
   const [person, setPerson] = useState<Person | null>(null);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>("LBS");
   const [trackers, setTrackers] = useState<Tracker[]>([]);
+  const [trackersLoaded, setTrackersLoaded] = useState(false);
   const [trackerTypes, setTrackerTypes] = useState<TrackerTypeOption[]>([]);
   const [selectedTrackerId, setSelectedTrackerId] = useState<string>("");
+  const [initialRoundResolved, setInitialRoundResolved] = useState(false);
   const [newTrackerTypeId, setNewTrackerTypeId] = useState<string>("");
   const [trackerBusy, setTrackerBusy] = useState(false);
   const [showAddTrackerControls, setShowAddTrackerControls] = useState(false);
@@ -593,6 +595,7 @@ export default function PersonPage() {
 
   async function loadTrackers() {
     if (!personId) return;
+    setTrackersLoaded(false);
 
     const res = await fetch(apiUrl(`trackers?personId=${encodeURIComponent(personId)}`));
     const data = (await res.json().catch(() => null)) as Tracker[] | null;
@@ -601,6 +604,7 @@ export default function PersonPage() {
       console.error("Failed to load trackers:", data);
       setTrackers([]);
       setSelectedTrackerId("");
+      setTrackersLoaded(true);
       return;
     }
 
@@ -608,6 +612,7 @@ export default function PersonPage() {
 
     if (data.length === 0) {
       setSelectedTrackerId("");
+      setTrackersLoaded(true);
       return;
     }
 
@@ -627,6 +632,7 @@ export default function PersonPage() {
       if (defaultTracker) return defaultTracker.id;
       return data[0].id;
     });
+    setTrackersLoaded(true);
   }
 
   async function loadTrackerTypes() {
@@ -854,6 +860,13 @@ export default function PersonPage() {
   }
 
   useEffect(() => {
+    setTrackers([]);
+    setSelectedTrackerId("");
+    setRound(null);
+    setRoundNumber(0);
+    setHistory([]);
+    setTrackersLoaded(false);
+    setInitialRoundResolved(false);
     loadPerson();
     loadTrackers();
     loadTrackerTypes();
@@ -862,10 +875,20 @@ export default function PersonPage() {
   }, [personId]);
 
   useEffect(() => {
-    loadLatestRound();
-    loadRoundHistory();
+    if (!trackersLoaded) return;
+    if (!selectedTrackerId && trackers.length > 0) return;
+
+    let cancelled = false;
+    (async () => {
+      await Promise.all([loadLatestRound(), loadRoundHistory()]);
+      if (!cancelled) setInitialRoundResolved(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personId, selectedTrackerId]);
+  }, [personId, selectedTrackerId, trackers.length, trackersLoaded]);
 
   async function cycle(roundId: string, categoryId: string, day: string) {
     const res = await fetch(apiUrl("entries"), {
@@ -1098,6 +1121,14 @@ export default function PersonPage() {
       </div>
     </div>
   ) : null;
+
+  if (!initialRoundResolved) {
+    return (
+      <main className="mx-auto max-w-5xl px-5 py-8">
+        <div className="text-sm text-slate-400">Loading tracker...</div>
+      </main>
+    );
+  }
 
 
   // If no round yet
