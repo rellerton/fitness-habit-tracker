@@ -9,6 +9,16 @@ import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 
 type Person = { id: string; name: string };
+type TrackerTypeOption = { id: string; name: string; active: boolean };
+type Tracker = {
+  id: string;
+  name: string;
+  active: boolean;
+  trackerTypeId: string;
+  trackerType: { id: string; name: string; active: boolean };
+  roundsCount?: number;
+  latestRoundCreatedAt?: string | null;
+};
 
 type Category = { categoryId: string; displayName: string; allowDaysOffPerWeek?: number };
 type WeightUnit = "LBS" | "KG";
@@ -26,6 +36,12 @@ type RoundPayload = {
 type LatestRoundResponse = {
   round: RoundPayload | null;
   roundNumber: number;
+  tracker?: {
+    id: string;
+    name: string;
+    trackerTypeId: string;
+    trackerTypeName: string;
+  } | null;
 };
 
 type RoundHistoryItem = {
@@ -36,6 +52,13 @@ type RoundHistoryItem = {
   active: boolean;
   createdAt: string;
   roundNumber: number;
+  trackerId?: string;
+  tracker?: {
+    id: string;
+    name: string;
+    trackerTypeId: string;
+    trackerTypeName: string;
+  };
   roundCategories: Category[];
   entries: { categoryId: string; date: string; status: string }[];
   weightEntries: { weekIndex: number; weight: number; date: string }[];
@@ -493,6 +516,14 @@ function shouldHideControls(v: string | null) {
   return s === "0" || s === "false" || s === "off" || s === "hide" || s === "no";
 }
 
+function formatTrackerLabel(tracker: Tracker | null) {
+  if (!tracker) return "No tracker selected";
+  if (tracker.name.trim().toLowerCase() === tracker.trackerType.name.trim().toLowerCase()) {
+    return tracker.name;
+  }
+  return `${tracker.name} (${tracker.trackerType.name})`;
+}
+
 export default function PersonPage() {
   const routeParams = useParams<{ personId: string }>();
   const personId = routeParams.personId;
@@ -500,6 +531,12 @@ export default function PersonPage() {
 
   const [person, setPerson] = useState<Person | null>(null);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>("LBS");
+  const [trackers, setTrackers] = useState<Tracker[]>([]);
+  const [trackerTypes, setTrackerTypes] = useState<TrackerTypeOption[]>([]);
+  const [selectedTrackerId, setSelectedTrackerId] = useState<string>("");
+  const [newTrackerTypeId, setNewTrackerTypeId] = useState<string>("");
+  const [trackerBusy, setTrackerBusy] = useState(false);
+  const [showAddTrackerControls, setShowAddTrackerControls] = useState(false);
 
   const [round, setRound] = useState<RoundPayload | null>(null);
   const [roundNumber, setRoundNumber] = useState<number>(0);
@@ -515,7 +552,11 @@ export default function PersonPage() {
   const [weightSaving, setWeightSaving] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; roundNumber: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    roundNumber: number;
+    trackerName: string;
+  } | null>(null);
 
   // modal
   const [openRound, setOpenRound] = useState<RoundHistoryItem | null>(null);
@@ -526,6 +567,14 @@ export default function PersonPage() {
     () => shouldHideControls(searchParams.get("controls")),
     [searchParams]
   );
+  const selectedTracker = useMemo(
+    () => trackers.find((t) => t.id === selectedTrackerId) ?? null,
+    [trackers, selectedTrackerId]
+  );
+  const hasMultipleTrackers = trackers.length > 1;
+  const showTrackerSwitcher = !hideControls && hasMultipleTrackers;
+  const showAddTrackerPanel =
+    !hideControls && (showAddTrackerControls || trackers.length === 0);
 
   async function loadPerson() {
     if (!personId) return;
@@ -542,14 +591,78 @@ export default function PersonPage() {
     setPerson(null);
   }
 
-  async function loadLatestRound() {
+  async function loadTrackers() {
     if (!personId) return;
 
-    const res = await fetch(apiUrl(`people/${personId}/latest-round`));
+    const res = await fetch(apiUrl(`trackers?personId=${encodeURIComponent(personId)}`));
+    const data = (await res.json().catch(() => null)) as Tracker[] | null;
+
+    if (!res.ok || !Array.isArray(data)) {
+      console.error("Failed to load trackers:", data);
+      setTrackers([]);
+      setSelectedTrackerId("");
+      return;
+    }
+
+    setTrackers(data);
+
+    if (data.length === 0) {
+      setSelectedTrackerId("");
+      return;
+    }
+
+    setSelectedTrackerId((prev) => {
+      if (prev && data.some((t) => t.id === prev)) return prev;
+      const requested = searchParams.get("trackerId");
+      if (requested && data.some((t) => t.id === requested)) return requested;
+      const withRounds = data
+        .filter((t) => (t.roundsCount ?? 0) > 0)
+        .sort((a, b) => {
+          const aTime = a.latestRoundCreatedAt ? Date.parse(a.latestRoundCreatedAt) : 0;
+          const bTime = b.latestRoundCreatedAt ? Date.parse(b.latestRoundCreatedAt) : 0;
+          return bTime - aTime;
+        });
+      if (withRounds.length > 0) return withRounds[0].id;
+      const defaultTracker = data.find((t) => t.name.trim().toLowerCase() === "default");
+      if (defaultTracker) return defaultTracker.id;
+      return data[0].id;
+    });
+  }
+
+  async function loadTrackerTypes() {
+    const res = await fetch(apiUrl("tracker-types"));
+    const data = (await res.json().catch(() => null)) as TrackerTypeOption[] | null;
+
+    if (!res.ok || !Array.isArray(data)) {
+      console.error("Failed to load tracker types:", data);
+      setTrackerTypes([]);
+      setNewTrackerTypeId("");
+      return;
+    }
+
+    setTrackerTypes(data);
+    setNewTrackerTypeId((prev) => {
+      if (prev && data.some((t) => t.id === prev)) return prev;
+      return data[0]?.id ?? "";
+    });
+  }
+
+  async function loadLatestRound() {
+    if (!personId || !selectedTrackerId) {
+      setRound(null);
+      setRoundNumber(0);
+      return;
+    }
+
+    const res = await fetch(
+      apiUrl(`people/${personId}/latest-round?trackerId=${encodeURIComponent(selectedTrackerId)}`)
+    );
     const data = (await res.json().catch(() => null)) as LatestRoundResponse | null;
 
     if (!res.ok) {
       console.error("Failed to load latest round:", data);
+      setRound(null);
+      setRoundNumber(0);
       return;
     }
 
@@ -558,10 +671,15 @@ export default function PersonPage() {
   }
 
   async function loadRoundHistory() {
-    if (!personId) return;
+    if (!personId || !selectedTrackerId) {
+      setHistory([]);
+      return;
+    }
 
     setHistoryLoading(true);
-    const res = await fetch(apiUrl(`people/${personId}/rounds`));
+    const res = await fetch(
+      apiUrl(`people/${personId}/rounds?trackerId=${encodeURIComponent(selectedTrackerId)}`)
+    );
     const data = (await res.json().catch(() => null)) as RoundHistoryItem[] | null;
 
     if (!res.ok || !Array.isArray(data)) {
@@ -601,6 +719,33 @@ export default function PersonPage() {
     console.error("Failed to load settings:", data);
   }
 
+  async function createTracker() {
+    if (!personId || !newTrackerTypeId) return;
+
+    setTrackerBusy(true);
+    try {
+      const res = await fetch(apiUrl("trackers"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personId,
+          trackerTypeId: newTrackerTypeId,
+        }),
+      });
+      const created = (await res.json().catch(() => null)) as Tracker | { error?: string } | null;
+      if (!res.ok || !created || !("id" in created)) {
+        alert(`Failed to create tracker: ${(created as { error?: string } | null)?.error ?? "Unknown error"}`);
+        return;
+      }
+
+      await loadTrackers();
+      setSelectedTrackerId(created.id);
+      setShowAddTrackerControls(false);
+    } finally {
+      setTrackerBusy(false);
+    }
+  }
+
   function openEditStartPrompt() {
     if (!round) return;
     setEditStartDateInput(round.startDate);
@@ -613,7 +758,7 @@ export default function PersonPage() {
   }
 
   async function confirmStartRound() {
-    if (!personId) return;
+    if (!personId || !selectedTrackerId) return;
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) {
       alert("Please pick a valid start date.");
@@ -642,6 +787,7 @@ export default function PersonPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         personId,
+        trackerId: selectedTrackerId,
         startDate: startDateInput,
         lengthWeeks: roundLengthWeeks,
         ...(goalWeight !== undefined ? { goalWeight } : {}),
@@ -709,11 +855,17 @@ export default function PersonPage() {
 
   useEffect(() => {
     loadPerson();
-    loadLatestRound();
-    loadRoundHistory();
+    loadTrackers();
+    loadTrackerTypes();
     loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
+
+  useEffect(() => {
+    loadLatestRound();
+    loadRoundHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId, selectedTrackerId]);
 
   async function cycle(roundId: string, categoryId: string, day: string) {
     const res = await fetch(apiUrl("entries"), {
@@ -805,8 +957,8 @@ export default function PersonPage() {
     }
   }
 
-  function openDeletePrompt(id: string, roundNumber: number) {
-    setDeleteTarget({ id, roundNumber });
+  function openDeletePrompt(id: string, roundNumber: number, trackerName: string) {
+    setDeleteTarget({ id, roundNumber, trackerName });
     setDeleteConfirmOpen(true);
   }
 
@@ -958,7 +1110,9 @@ export default function PersonPage() {
               {person?.name ?? "Person"}
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              Start a new round to begin tracking.
+              {selectedTracker
+                ? `Active tracker: ${formatTrackerLabel(selectedTracker)}`
+                : "No tracker selected"}
             </p>
           </div>
             {!hideControls && (
@@ -980,16 +1134,82 @@ export default function PersonPage() {
         </div>
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {showTrackerSwitcher ? "Active tracker" : "Tracker"}
+          </div>
+          {showTrackerSwitcher ? (
+            <select
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+              value={selectedTrackerId}
+              onChange={(e) => setSelectedTrackerId(e.target.value)}
+              style={{ colorScheme: "dark" }}
+              disabled={trackers.length === 0 || loading || trackerBusy}
+            >
+              {trackers.map((t) => (
+                <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
+                  {formatTrackerLabel(t)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="mt-2 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
+              {formatTrackerLabel(selectedTracker)}
+            </div>
+          )}
+
           <button
             onClick={openNewRoundPrompt}
-            disabled={loading}
-            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading || !selectedTrackerId}
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Starting..." : "Start New Round"}
           </button>
 
+          {!hideControls && trackers.length > 0 && (
+            <button
+              onClick={() => setShowAddTrackerControls((prev) => !prev)}
+              disabled={trackerBusy || loading}
+              className="mt-3 text-xs font-semibold text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
+            >
+              {showAddTrackerPanel ? "Cancel adding tracker" : "Add another tracker"}
+            </button>
+          )}
+
+          {showAddTrackerPanel && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto]">
+              <select
+                className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
+                value={newTrackerTypeId}
+                onChange={(e) => setNewTrackerTypeId(e.target.value)}
+                style={{ colorScheme: "dark" }}
+                disabled={trackerTypes.length === 0 || trackerBusy || loading}
+              >
+                {trackerTypes.length === 0 ? (
+                  <option className="bg-[#111111] text-slate-100" value="">
+                    No tracker types available
+                  </option>
+                ) : (
+                  trackerTypes.map((tt) => (
+                    <option key={tt.id} className="bg-[#111111] text-slate-100" value={tt.id}>
+                      {tt.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                onClick={createTracker}
+                disabled={!newTrackerTypeId || trackerBusy || loading}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {trackerBusy ? "Adding..." : "Add Tracker"}
+              </button>
+            </div>
+          )}
+
           <p className="mt-4 text-sm text-slate-400">
-            No rounds yet for this person.
+            {selectedTracker
+              ? `No rounds yet for tracker "${selectedTracker.name}".`
+              : "No active trackers yet. Add one to start tracking."}
           </p>
         </section>
 
@@ -1007,6 +1227,9 @@ export default function PersonPage() {
             {person?.name ?? "Person"}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
+            {selectedTracker
+              ? `Tracker: ${formatTrackerLabel(selectedTracker)} • `
+              : ""}
             Active round • Start: {round.startDate} • {round.lengthWeeks} weeks
             {roundNumber > 0 ? ` • Round ${roundNumber}` : ""}
           </p>
@@ -1035,7 +1258,7 @@ export default function PersonPage() {
 
           <button
             onClick={openNewRoundPrompt}
-            disabled={loading}
+            disabled={loading || !selectedTrackerId}
             className="rounded-xl bg-sky-500 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
             title="Start a new round (creates a fresh one)"
           >
@@ -1043,6 +1266,74 @@ export default function PersonPage() {
           </button>
         </div>
       </div>
+
+      {!hideControls && (
+        <section className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {showTrackerSwitcher ? "Active tracker" : "Tracker"}
+          </div>
+          {showTrackerSwitcher ? (
+            <select
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+              value={selectedTrackerId}
+              onChange={(e) => setSelectedTrackerId(e.target.value)}
+              style={{ colorScheme: "dark" }}
+              disabled={trackers.length === 0 || loading || trackerBusy}
+            >
+              {trackers.map((t) => (
+                <option key={t.id} className="bg-[#111111] text-slate-100" value={t.id}>
+                  {formatTrackerLabel(t)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="mt-2 rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100">
+              {formatTrackerLabel(selectedTracker)}
+            </div>
+          )}
+
+          {!hideControls && trackers.length > 0 && (
+            <button
+              onClick={() => setShowAddTrackerControls((prev) => !prev)}
+              disabled={trackerBusy || loading}
+              className="mt-3 text-xs font-semibold text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
+            >
+              {showAddTrackerPanel ? "Cancel adding tracker" : "Add another tracker"}
+            </button>
+          )}
+
+          {showAddTrackerPanel && (
+            <div className="mt-3 grid grid-cols-[1fr,auto] gap-2">
+              <select
+                className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
+                value={newTrackerTypeId}
+                onChange={(e) => setNewTrackerTypeId(e.target.value)}
+                style={{ colorScheme: "dark" }}
+                disabled={trackerTypes.length === 0 || trackerBusy || loading}
+              >
+                {trackerTypes.length === 0 ? (
+                  <option className="bg-[#111111] text-slate-100" value="">
+                    No tracker types
+                  </option>
+                ) : (
+                  trackerTypes.map((tt) => (
+                    <option key={tt.id} className="bg-[#111111] text-slate-100" value={tt.id}>
+                      {tt.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                onClick={createTracker}
+                disabled={!newTrackerTypeId || trackerBusy || loading}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {trackerBusy ? "Adding..." : "Add"}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <RoundWheel
         roundId={round.id}
@@ -1161,7 +1452,11 @@ export default function PersonPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            openDeletePrompt(r.id, r.roundNumber);
+                            openDeletePrompt(
+                              r.id,
+                              r.roundNumber,
+                              r.tracker?.name ?? selectedTracker?.name ?? "Tracker"
+                            );
                           }}
                           className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10"
                           title="Delete this round"
@@ -1367,7 +1662,7 @@ export default function PersonPage() {
           />
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">
-              Delete Round {deleteTarget.roundNumber}?
+              Delete {person?.name ?? "Person"} - {deleteTarget.trackerName} - Round {deleteTarget.roundNumber}?
             </h3>
 
             <p className="mt-2 text-sm text-slate-300">

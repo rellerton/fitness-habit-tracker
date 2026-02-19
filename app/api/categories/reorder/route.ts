@@ -18,7 +18,7 @@ export async function PATCH(req: Request) {
 
   const current = await prisma.category.findUnique({
     where: { id: categoryId },
-    select: { id: true, sortOrder: true, active: true },
+    select: { id: true, sortOrder: true, active: true, trackerTypeId: true },
   });
 
   if (!current || !current.active) {
@@ -28,8 +28,16 @@ export async function PATCH(req: Request) {
   const neighbor = await prisma.category.findFirst({
     where:
       direction === "up"
-        ? { sortOrder: { lt: current.sortOrder }, active: true }
-        : { sortOrder: { gt: current.sortOrder }, active: true },
+        ? {
+            sortOrder: { lt: current.sortOrder },
+            active: true,
+            trackerTypeId: current.trackerTypeId,
+          }
+        : {
+            sortOrder: { gt: current.sortOrder },
+            active: true,
+            trackerTypeId: current.trackerTypeId,
+          },
     orderBy: { sortOrder: direction === "up" ? "desc" : "asc" },
     select: { id: true, sortOrder: true },
   });

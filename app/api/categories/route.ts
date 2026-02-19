@@ -12,26 +12,36 @@ function parseApplyToExisting(value: unknown) {
   return false;
 }
 
-async function getLatestRoundIds(tx: Prisma.TransactionClient) {
+async function getLatestRoundIdsByTrackerType(
+  tx: Prisma.TransactionClient,
+  trackerTypeId: string
+) {
   const rounds = await tx.round.findMany({
-    orderBy: [{ personId: "asc" }, { createdAt: "desc" }],
-    select: { id: true, personId: true },
+    where: { tracker: { trackerTypeId, active: true } },
+    orderBy: [{ trackerId: "asc" }, { createdAt: "desc" }],
+    select: { id: true, trackerId: true },
   });
 
   const latestRoundIds: string[] = [];
   const seen = new Set<string>();
   for (const round of rounds) {
-    if (seen.has(round.personId)) continue;
-    seen.add(round.personId);
+    if (seen.has(round.trackerId)) continue;
+    seen.add(round.trackerId);
     latestRoundIds.push(round.id);
   }
 
   return latestRoundIds;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const trackerTypeId = searchParams.get("trackerTypeId")?.trim();
+  if (!trackerTypeId) {
+    return NextResponse.json({ error: "trackerTypeId required" }, { status: 400 });
+  }
+
   const cats = await prisma.category.findMany({
-    where: { active: true },
+    where: { active: true, trackerTypeId },
     orderBy: { sortOrder: "asc" },
     select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
   });
@@ -42,6 +52,11 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const name = (body?.name as string | undefined)?.trim();
+  const trackerTypeId = (body?.trackerTypeId as string | undefined)?.trim();
+
+  if (!trackerTypeId) {
+    return NextResponse.json({ error: "trackerTypeId required" }, { status: 400 });
+  }
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
@@ -59,8 +74,20 @@ export async function POST(req: Request) {
   }
 
   const applyToExisting = parseApplyToExisting(body?.applyToExisting);
-  const activeCount = await prisma.category.count({ where: { active: true } });
-  const existing = await prisma.category.findUnique({ where: { name } });
+
+  const trackerType = await prisma.trackerType.findUnique({
+    where: { id: trackerTypeId },
+    select: { id: true, active: true },
+  });
+
+  if (!trackerType || !trackerType.active) {
+    return NextResponse.json({ error: "Tracker type not found" }, { status: 404 });
+  }
+
+  const activeCount = await prisma.category.count({ where: { active: true, trackerTypeId } });
+  const existing = await prisma.category.findUnique({
+    where: { trackerTypeId_name: { trackerTypeId, name } },
+  });
   if (existing?.active) {
     return NextResponse.json({ error: "Category name already exists." }, { status: 409 });
   }
@@ -74,7 +101,7 @@ export async function POST(req: Request) {
   // Put new category at bottom of active list
   const max = await prisma.category.aggregate({
     _max: { sortOrder: true },
-    where: { active: true },
+    where: { active: true, trackerTypeId },
   });
   const nextSort = (max._max.sortOrder ?? 0) + 1;
 
@@ -90,13 +117,13 @@ export async function POST(req: Request) {
         });
       } else {
         created = await tx.category.create({
-          data: { name, sortOrder: nextSort, allowDaysOffPerWeek },
+          data: { trackerTypeId, name, sortOrder: nextSort, allowDaysOffPerWeek },
           select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
         });
       }
 
       if (applyToExisting) {
-        const latestRoundIds = await getLatestRoundIds(tx);
+        const latestRoundIds = await getLatestRoundIdsByTrackerType(tx, trackerTypeId);
         if (latestRoundIds.length > 0) {
           const roundsMissing = await tx.round.findMany({
             where: {
