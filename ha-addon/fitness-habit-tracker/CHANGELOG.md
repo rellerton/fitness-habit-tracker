@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.0.0
+
+- Major feature: add global `Tracker Types` and person-level `Trackers` (one or more active trackers per person).
+- Categories now belong to a tracker type (same category workflows, now scoped per tracker type).
+- Backward-compatible data migration: existing data is backfilled into a `Default` tracker type/tracker structure.
+- Rounds now run within a selected tracker, while preserving existing round behavior.
+- Round numbering now scopes by tracker type per person (for example, first round in a new tracker type is `Round 1`).
+- Person UI: active tracker selection/creation flow cleaned up for common single-tracker use, with multi-tracker support.
+- Admin UI: tracker-type management, per-type category management, tracker visibility/removal controls, and clearer rounds-by-tracker context.
+- Confirmation prompts updated for clarity on destructive actions (person + tracker + round context where relevant).
+
 ## v2.1.5
 
 - Summary: cap per-week category scoring to avoid over-crediting missed days.

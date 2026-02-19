@@ -10,17 +10,21 @@ function parseApplyToExisting(value: unknown) {
   return false;
 }
 
-async function getLatestRoundIds(tx: Prisma.TransactionClient) {
+async function getLatestRoundIdsByTrackerType(
+  tx: Prisma.TransactionClient,
+  trackerTypeId: string
+) {
   const rounds = await tx.round.findMany({
-    orderBy: [{ personId: "asc" }, { createdAt: "desc" }],
-    select: { id: true, personId: true },
+    where: { tracker: { trackerTypeId, active: true } },
+    orderBy: [{ trackerId: "asc" }, { createdAt: "desc" }],
+    select: { id: true, trackerId: true },
   });
 
   const latestRoundIds: string[] = [];
   const seen = new Set<string>();
   for (const round of rounds) {
-    if (seen.has(round.personId)) continue;
-    seen.add(round.personId);
+    if (seen.has(round.trackerId)) continue;
+    seen.add(round.trackerId);
     latestRoundIds.push(round.id);
   }
 
@@ -39,7 +43,7 @@ export async function DELETE(
 
   const exists = await prisma.category.findUnique({
     where: { id: categoryId },
-    select: { id: true, active: true },
+    select: { id: true, active: true, trackerTypeId: true },
   });
 
   if (!exists || !exists.active) {
@@ -57,7 +61,7 @@ export async function DELETE(
     });
 
     if (removeFromActiveRounds) {
-      const latestRoundIds = await getLatestRoundIds(tx);
+      const latestRoundIds = await getLatestRoundIdsByTrackerType(tx, exists.trackerTypeId);
       if (latestRoundIds.length > 0) {
         await tx.entry.deleteMany({
           where: { categoryId, roundId: { in: latestRoundIds } },
@@ -106,7 +110,7 @@ export async function PATCH(
 
   const exists = await prisma.category.findUnique({
     where: { id: categoryId },
-    select: { id: true, active: true },
+    select: { id: true, active: true, trackerTypeId: true },
   });
 
   if (!exists || !exists.active) {
@@ -125,7 +129,7 @@ export async function PATCH(
       });
 
       if (applyToExisting) {
-        const latestRoundIds = await getLatestRoundIds(tx);
+        const latestRoundIds = await getLatestRoundIdsByTrackerType(tx, exists.trackerTypeId);
         if (latestRoundIds.length > 0) {
           await tx.roundCategory.updateMany({
             where: { categoryId, roundId: { in: latestRoundIds } },

@@ -1,6 +1,13 @@
 import { prisma } from "../lib/prisma";
 
 async function main() {
+  const defaultTrackerType = await prisma.trackerType.upsert({
+    where: { name: "Default" },
+    update: { active: true },
+    create: { name: "Default", active: true },
+    select: { id: true },
+  });
+
   await prisma.appSettings.upsert({
     where: { id: "singleton" },
     update: {},
@@ -21,9 +28,18 @@ async function main() {
 
   for (const c of defaults) {
     await prisma.category.upsert({
-      where: { name: c.name },
+      where: {
+        trackerTypeId_name: {
+          trackerTypeId: defaultTrackerType.id,
+          name: c.name,
+        },
+      },
       update: { active: true, sortOrder: c.sortOrder },
-      create: { name: c.name, sortOrder: c.sortOrder },
+      create: {
+        trackerTypeId: defaultTrackerType.id,
+        name: c.name,
+        sortOrder: c.sortOrder,
+      },
     });
   }
 }

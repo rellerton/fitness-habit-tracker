@@ -14,19 +14,51 @@ model Person {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  trackers  Tracker[]
   rounds    Round[]
 }
 
+model TrackerType {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories Category[]
+  trackers   Tracker[]
+}
+
+model Tracker {
+  id            String      @id @default(cuid())
+  personId      String
+  trackerTypeId String
+  name          String
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  person        Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  trackerType   TrackerType @relation(fields: [trackerTypeId], references: [id], onDelete: Restrict)
+  rounds        Round[]
+
+  @@index([personId, active])
+  @@index([trackerTypeId, active])
+}
+
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  sortOrder Int      @default(0)
+  id                 String      @id @default(cuid())
+  trackerTypeId      String
+  name               String
+  sortOrder          Int         @default(0)
   allowDaysOffPerWeek Int @default(0)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  active             Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  trackerType        TrackerType @relation(fields: [trackerTypeId], references: [id], onDelete: Restrict)
   roundCategories RoundCategory[]
   entries         Entry[]
+
+  @@unique([trackerTypeId, name])
+  @@index([trackerTypeId, active, sortOrder])
 }
 
 model AppSettings {
@@ -41,15 +73,18 @@ model AppSettings {
 model Round {
   id          String   @id @default(cuid())
   personId    String
+  trackerId   String
   startDate   DateTime
   lengthWeeks Int
   goalWeight  Float?
   createdAt   DateTime @default(now())
   person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tracker     Tracker  @relation(fields: [trackerId], references: [id], onDelete: Restrict)
   roundCategories RoundCategory[]
   entries         Entry[]
   weightEntries   WeightEntry[]
   @@index([personId])
+  @@index([trackerId])
 }
 
 model RoundCategory {

@@ -6,6 +6,24 @@ import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
 type Category = { id: string; name: string; sortOrder: number; allowDaysOffPerWeek: number };
+type TrackerType = {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt?: string;
+  categoriesCount?: number;
+  trackersCount?: number;
+  roundsCount?: number;
+};
+type PersonTracker = {
+  id: string;
+  name: string;
+  active: boolean;
+  trackerTypeId: string;
+  trackerType: { id: string; name: string; active: boolean };
+  roundsCount?: number;
+  latestRoundCreatedAt?: string | null;
+};
 
 type RoundHistoryItem = {
   id: string;
@@ -13,6 +31,7 @@ type RoundHistoryItem = {
   lengthWeeks: number;
   createdAt: string;
   roundNumber: number;
+  tracker?: { id: string; name: string; trackerTypeName: string };
   roundCategories: { categoryId: string; displayName: string }[];
   entries: { categoryId: string; date: string; status: string }[];
 };
@@ -27,23 +46,31 @@ export default function AdminPage() {
   })();
 
   const [people, setPeople] = useState<Person[]>([]);
+  const [trackerTypes, setTrackerTypes] = useState<TrackerType[]>([]);
+  const [selectedTrackerTypeId, setSelectedTrackerTypeId] = useState("");
+  const [trackerTypeName, setTrackerTypeName] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
   const [personName, setPersonName] = useState("");
   const [catName, setCatName] = useState("");
   const [catDaysOff, setCatDaysOff] = useState<number>(0);
   const [applyCatToExisting, setApplyCatToExisting] = useState(false);
-  const [busy, setBusy] = useState<"person" | "category" | "settings" | null>(null);
+  const [busy, setBusy] = useState<
+    "person" | "tracker" | "trackerType" | "category" | "settings" | null
+  >(null);
   const [weightUnit, setWeightUnit] = useState<"LBS" | "KG">("LBS");
 
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const [roundsByPerson, setRoundsByPerson] = useState<Record<string, RoundHistoryItem[]>>({});
   const [roundsLoading, setRoundsLoading] = useState<Record<string, boolean>>({});
+  const [trackersByPerson, setTrackersByPerson] = useState<Record<string, PersonTracker[]>>({});
+  const [trackersLoading, setTrackersLoading] = useState<Record<string, boolean>>({});
 
   const [deleteRoundOpen, setDeleteRoundOpen] = useState(false);
   const [deleteRoundTarget, setDeleteRoundTarget] = useState<{
     roundId: string;
     personId: string;
     personName: string;
+    trackerName: string;
     roundNumber: number;
   } | null>(null);
 
@@ -52,6 +79,13 @@ export default function AdminPage() {
   const [editPersonOpen, setEditPersonOpen] = useState(false);
   const [editPersonTarget, setEditPersonTarget] = useState<Person | null>(null);
   const [editPersonName, setEditPersonName] = useState("");
+  const [deleteTrackerOpen, setDeleteTrackerOpen] = useState(false);
+  const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<{
+    personId: string;
+    personName: string;
+    trackerId: string;
+    trackerName: string;
+  } | null>(null);
 
   const [deleteCatOpen, setDeleteCatOpen] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string } | null>(null);
@@ -63,9 +97,21 @@ export default function AdminPage() {
   const [applyEditCatToExisting, setApplyEditCatToExisting] = useState(false);
 
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
+  const selectedTrackerType = useMemo(
+    () => trackerTypes.find((tt) => tt.id === selectedTrackerTypeId) ?? null,
+    [trackerTypes, selectedTrackerTypeId]
+  );
+  const canAddTrackerType = useMemo(() => trackerTypeName.trim().length > 0, [trackerTypeName]);
   const canAddCategory = useMemo(
-    () => catName.trim().length > 0 && cats.length < MAX_ACTIVE_CATEGORIES,
-    [catName, cats.length]
+    () =>
+      selectedTrackerTypeId.length > 0 &&
+      catName.trim().length > 0 &&
+      cats.length < MAX_ACTIVE_CATEGORIES,
+    [selectedTrackerTypeId, catName, cats.length]
+  );
+  const trackerTotal = useMemo(
+    () => trackerTypes.reduce((sum, tt) => sum + (tt.trackersCount ?? 0), 0),
+    [trackerTypes]
   );
 
   async function fetchJson(path: string, options: RequestInit = {}) {
@@ -77,18 +123,51 @@ export default function AdminPage() {
     return res.json();
   }
 
+  async function loadCategories(trackerTypeId: string) {
+    if (!trackerTypeId) {
+      setCats([]);
+      return;
+    }
+
+    const c = await fetchJson(`categories?trackerTypeId=${encodeURIComponent(trackerTypeId)}`);
+    const catsArr = Array.isArray(c) ? c : [];
+    catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    setCats(catsArr);
+  }
+
   async function refresh() {
-    const [p, c, s] = await Promise.all([
+    const [p, t, s] = await Promise.all([
       fetchJson("people"),
-      fetchJson("categories"),
+      fetchJson("tracker-types?includeStats=true"),
       fetchJson("settings"),
     ]);
 
     setPeople(Array.isArray(p) ? p : []);
 
-    const catsArr = Array.isArray(c) ? c : [];
-    catsArr.sort((a: Category, b: Category) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    setCats(catsArr);
+    const types = (Array.isArray(t) ? t : []) as TrackerType[];
+    setTrackerTypes(types);
+
+    const rankedTypes = [...types].sort((a, b) => {
+      const roundsA = a.roundsCount ?? 0;
+      const roundsB = b.roundsCount ?? 0;
+      if (roundsA !== roundsB) return roundsB - roundsA;
+      const trackersA = a.trackersCount ?? 0;
+      const trackersB = b.trackersCount ?? 0;
+      if (trackersA !== trackersB) return trackersB - trackersA;
+      const createdA = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const createdB = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return createdA - createdB;
+    });
+
+    const nextSelected =
+      types.find((tt) => tt.id === selectedTrackerTypeId)?.id ?? rankedTypes[0]?.id ?? "";
+    setSelectedTrackerTypeId(nextSelected);
+    if (nextSelected) {
+      await loadCategories(nextSelected);
+    } else {
+      setCats([]);
+    }
+
     if (s?.weightUnit === "KG" || s?.weightUnit === "LBS") {
       setWeightUnit(s.weightUnit);
     }
@@ -98,7 +177,20 @@ export default function AdminPage() {
     refresh().catch((e) => {
       console.error("[AdminPage] refresh failed:", e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!selectedTrackerTypeId) {
+      setCats([]);
+      return;
+    }
+    loadCategories(selectedTrackerTypeId).catch((e) => {
+      console.error("[AdminPage] loadCategories failed:", e);
+      setCats([]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTrackerTypeId]);
 
   async function addPerson() {
     const name = personName.trim();
@@ -173,6 +265,11 @@ export default function AdminPage() {
         delete next[deletePersonTarget.id];
         return next;
       });
+      setTrackersByPerson((prev) => {
+        const next = { ...prev };
+        delete next[deletePersonTarget.id];
+        return next;
+      });
       await refresh();
     } catch (e) {
       console.error(e);
@@ -184,6 +281,10 @@ export default function AdminPage() {
 
   async function addCategory() {
     const name = catName.trim();
+    if (!selectedTrackerTypeId) {
+      alert("Select a tracker type first.");
+      return;
+    }
     if (!name) return;
     if (cats.length >= MAX_ACTIVE_CATEGORIES) {
       alert(`Max ${MAX_ACTIVE_CATEGORIES} categories reached.`);
@@ -200,6 +301,7 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          trackerTypeId: selectedTrackerTypeId,
           name,
           allowDaysOffPerWeek: catDaysOff,
           applyToExisting: applyCatToExisting,
@@ -225,7 +327,9 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryId, direction }),
       });
-      await refresh();
+      if (selectedTrackerTypeId) {
+        await loadCategories(selectedTrackerTypeId);
+      }
     } catch (e) {
       console.error(e);
       alert(`Reorder failed: ${e instanceof Error ? e.message : "Unknown error"}`);
@@ -275,7 +379,9 @@ export default function AdminPage() {
       setEditCatOpen(false);
       setEditCatTarget(null);
       setApplyEditCatToExisting(false);
-      await refresh();
+      if (selectedTrackerTypeId) {
+        await loadCategories(selectedTrackerTypeId);
+      }
     } catch (e) {
       console.error(e);
       alert(`Update failed: ${e instanceof Error ? e.message : "Unknown error"}`);
@@ -297,7 +403,9 @@ export default function AdminPage() {
       setDeleteCatOpen(false);
       setDeleteCatTarget(null);
       setDeleteCatRemoveFromActive(false);
-      await refresh();
+      if (selectedTrackerTypeId) {
+        await loadCategories(selectedTrackerTypeId);
+      }
     } catch (e) {
       console.error(e);
       alert(`Delete failed: ${e instanceof Error ? e.message : "Unknown error"}`);
@@ -323,6 +431,78 @@ export default function AdminPage() {
     }
   }
 
+  async function addTrackerType() {
+    const name = trackerTypeName.trim();
+    if (!name) return;
+
+    setBusy("trackerType");
+    try {
+      await fetchJson("tracker-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setTrackerTypeName("");
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to add tracker type: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function renameSelectedTrackerType() {
+    if (!selectedTrackerType) return;
+    const nextName = window.prompt("Rename tracker type", selectedTrackerType.name);
+    if (!nextName) return;
+    const trimmed = nextName.trim();
+    if (!trimmed) return;
+
+    setBusy("trackerType");
+    try {
+      await fetchJson(`tracker-types/${selectedTrackerType.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to rename tracker type: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteSelectedTrackerType() {
+    if (!selectedTrackerType) return;
+
+    const confirmed = window.confirm(
+      `Delete tracker type "${selectedTrackerType.name}"?\n\nThis hides the type and its categories for future use. Historical rounds are preserved.`
+    );
+    if (!confirmed) return;
+
+    const deactivateTrackers = window.confirm(
+      "Also deactivate existing trackers using this type?"
+    );
+
+    setBusy("trackerType");
+    try {
+      await fetchJson(`tracker-types/${selectedTrackerType.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deactivateTrackers }),
+      });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to delete tracker type: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function togglePerson(personId: string) {
     if (expandedPersonId === personId) {
       setExpandedPersonId(null);
@@ -331,23 +511,73 @@ export default function AdminPage() {
 
     setExpandedPersonId(personId);
 
-    if (roundsByPerson[personId]) return;
+    if (roundsByPerson[personId] && trackersByPerson[personId]) return;
 
     setRoundsLoading((prev) => ({ ...prev, [personId]: true }));
+    setTrackersLoading((prev) => ({ ...prev, [personId]: true }));
     try {
-      const data = await fetchJson(`people/${personId}/rounds`);
+      const [roundsData, trackersData] = await Promise.all([
+        fetchJson(`people/${personId}/rounds`),
+        fetchJson(`trackers?personId=${personId}`),
+      ]);
 
-      if (!Array.isArray(data)) {
+      if (!Array.isArray(roundsData)) {
         setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
-        return;
+      } else {
+        setRoundsByPerson((prev) => ({ ...prev, [personId]: roundsData }));
       }
 
-      setRoundsByPerson((prev) => ({ ...prev, [personId]: data }));
+      if (!Array.isArray(trackersData)) {
+        setTrackersByPerson((prev) => ({ ...prev, [personId]: [] }));
+      } else {
+        setTrackersByPerson((prev) => ({ ...prev, [personId]: trackersData }));
+      }
     } catch (e) {
-      console.error("Failed to load rounds:", e);
+      console.error("Failed to load person detail:", e);
       setRoundsByPerson((prev) => ({ ...prev, [personId]: [] }));
+      setTrackersByPerson((prev) => ({ ...prev, [personId]: [] }));
     } finally {
       setRoundsLoading((prev) => ({ ...prev, [personId]: false }));
+      setTrackersLoading((prev) => ({ ...prev, [personId]: false }));
+    }
+  }
+
+  function openDeleteTracker(person: Person, tracker: PersonTracker) {
+    setDeleteTrackerTarget({
+      personId: person.id,
+      personName: person.name,
+      trackerId: tracker.id,
+      trackerName: tracker.name,
+    });
+    setDeleteTrackerOpen(true);
+  }
+
+  async function confirmDeleteTracker() {
+    if (!deleteTrackerTarget) return;
+
+    setBusy("tracker");
+    try {
+      await fetchJson(`trackers/${deleteTrackerTarget.trackerId}`, { method: "DELETE" });
+
+      const [trackersData, roundsData] = await Promise.all([
+        fetchJson(`trackers?personId=${deleteTrackerTarget.personId}`),
+        fetchJson(`people/${deleteTrackerTarget.personId}/rounds`),
+      ]);
+
+      if (Array.isArray(trackersData)) {
+        setTrackersByPerson((prev) => ({ ...prev, [deleteTrackerTarget.personId]: trackersData }));
+      }
+      if (Array.isArray(roundsData)) {
+        setRoundsByPerson((prev) => ({ ...prev, [deleteTrackerTarget.personId]: roundsData }));
+      }
+
+      setDeleteTrackerOpen(false);
+      setDeleteTrackerTarget(null);
+    } catch (e) {
+      console.error(e);
+      alert(`Remove tracker failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -356,6 +586,7 @@ export default function AdminPage() {
       roundId: round.id,
       personId: person.id,
       personName: person.name,
+      trackerName: round.tracker?.name ?? "Tracker",
       roundNumber: round.roundNumber,
     });
     setDeleteRoundOpen(true);
@@ -368,9 +599,15 @@ export default function AdminPage() {
     try {
       await fetchJson(`rounds/${deleteRoundTarget.roundId}`, { method: "DELETE" });
 
-      const data2 = await fetchJson(`people/${deleteRoundTarget.personId}/rounds`);
-      if (Array.isArray(data2)) {
-        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: data2 }));
+      const [roundsData, trackersData] = await Promise.all([
+        fetchJson(`people/${deleteRoundTarget.personId}/rounds`),
+        fetchJson(`trackers?personId=${deleteRoundTarget.personId}`),
+      ]);
+      if (Array.isArray(roundsData)) {
+        setRoundsByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: roundsData }));
+      }
+      if (Array.isArray(trackersData)) {
+        setTrackersByPerson((prev) => ({ ...prev, [deleteRoundTarget.personId]: trackersData }));
       }
 
       setDeleteRoundOpen(false);
@@ -388,7 +625,7 @@ export default function AdminPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Admin</h1>
-          <p className="mt-1 text-sm text-slate-400">Manage people, categories, and rounds.</p>
+          <p className="mt-1 text-sm text-slate-400">Manage people, tracker types, categories, and rounds.</p>
         </div>
 
         <div className="flex gap-2">
@@ -441,7 +678,15 @@ export default function AdminPage() {
               {people.map((p) => {
                 const expanded = expandedPersonId === p.id;
                 const rounds = roundsByPerson[p.id] ?? [];
-                const isLoading = roundsLoading[p.id] === true;
+                const trackers = trackersByPerson[p.id] ?? [];
+                const isLoadingRounds = roundsLoading[p.id] === true;
+                const isLoadingTrackers = trackersLoading[p.id] === true;
+                const sortedRounds = [...rounds].sort((a, b) => {
+                  const trackerA = a.tracker?.name ?? "";
+                  const trackerB = b.tracker?.name ?? "";
+                  if (trackerA !== trackerB) return trackerA.localeCompare(trackerB);
+                  return (a.roundNumber ?? 0) - (b.roundNumber ?? 0);
+                });
 
                 return (
                   <li key={p.id} className="px-4 py-3">
@@ -451,7 +696,7 @@ export default function AdminPage() {
                         onClick={() => togglePerson(p.id)}
                       >
                         <span className="font-medium text-slate-100">{p.name}</span>
-                        <span className="text-xs text-slate-400">{expanded ? "Hide rounds" : "Show rounds"}</span>
+                        <span className="text-xs text-slate-400">{expanded ? "Hide detail" : "Show detail"}</span>
                       </button>
                       <div className="flex items-center gap-2">
                         <button
@@ -476,45 +721,88 @@ export default function AdminPage() {
                     </div>
 
                     {expanded && (
-                      <div className="mt-3 rounded-xl border border-white/10 bg-[#111111]/25 p-3">
-                        {isLoading ? (
-                          <div className="text-sm text-slate-400">Loading rounds…</div>
-                        ) : rounds.length === 0 ? (
-                          <div className="text-sm text-slate-400">No rounds yet.</div>
+                      <div className="mt-3 space-y-3">
+                        {isLoadingTrackers ? (
+                          <div className="text-sm text-slate-400">Loading trackers…</div>
+                        ) : trackers.length === 0 ? (
+                          <div className="text-sm text-slate-400">No trackers found.</div>
                         ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full table-fixed border-collapse">
-                              <thead>
-                                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
-                                  <th className="py-2 pr-2 w-24">Round</th>
-                                  <th className="py-2 pr-2 w-28">Start</th>
-                                  <th className="py-2 pr-2 w-16">Weeks</th>
-                                  <th className="py-2 pr-2 w-16">Delete</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rounds.map((r) => (
-                                  <tr key={r.id} className="border-t border-white/10 text-sm">
-                                    <td className="py-2 pr-2 text-slate-200">Round {r.roundNumber}</td>
-                                    <td className="py-2 pr-2 text-slate-400">{String(r.startDate).slice(0, 10)}</td>
-                                    <td className="py-2 pr-2 text-slate-400">{r.lengthWeeks}</td>
-                                    <td className="py-2 pr-2">
+                          <div className="space-y-3">
+                            <section className="rounded-lg border border-white/10 bg-[#0f141c]/45 p-3">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-300">Trackers</div>
+                              <div className="mt-2 divide-y divide-white/10 rounded-lg bg-[#111111]/25">
+                                {trackers.map((tracker) => (
+                                  <div key={tracker.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm text-slate-200">{tracker.name}</div>
+                                      {tracker.name.trim().toLowerCase() !== tracker.trackerType.name.trim().toLowerCase() && (
+                                        <div className="truncate text-xs text-slate-500">{tracker.trackerType.name}</div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs text-slate-400">{tracker.roundsCount ?? 0} rounds</span>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          openDeleteRound(p, r);
+                                          openDeleteTracker(p, tracker);
                                         }}
-                                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10"
+                                        disabled={!tracker.active || busy !== null}
+                                        className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 disabled:opacity-50"
                                       >
-                                        Delete
+                                        Remove
                                       </button>
-                                    </td>
-                                  </tr>
+                                    </div>
+                                  </div>
                                 ))}
-                              </tbody>
-                            </table>
+                              </div>
+                            </section>
 
-                            <p className="mt-2 text-xs text-slate-500">Admin can delete any round (including most recent).</p>
+                            <section className="rounded-lg border border-white/10 bg-[#121117]/40 p-3">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-300">Rounds</div>
+                              {isLoadingRounds ? (
+                                <div className="mt-2 text-sm text-slate-400">Loading rounds…</div>
+                              ) : rounds.length === 0 ? (
+                                <div className="mt-2 text-sm text-slate-400">No rounds yet.</div>
+                              ) : (
+                                <div className="mt-2">
+                                  <table className="w-full table-auto border-collapse">
+                                    <thead>
+                                      <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
+                                        <th className="py-2 pr-2">Tracker</th>
+                                        <th className="py-2 pr-2">Round</th>
+                                        <th className="py-2 pr-2">Start</th>
+                                        <th className="py-2 pr-2">Weeks</th>
+                                        <th className="py-2 pr-0 text-right">Delete</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {sortedRounds.map((r) => (
+                                        <tr key={r.id} className="border-t border-white/10 text-sm">
+                                          <td className="py-2 pr-2 text-slate-400">{r.tracker?.name ?? "-"}</td>
+                                          <td className="py-2 pr-2 text-slate-200">Round {r.roundNumber}</td>
+                                          <td className="py-2 pr-2 text-slate-400">{String(r.startDate).slice(0, 10)}</td>
+                                          <td className="py-2 pr-2 text-slate-400">{r.lengthWeeks}</td>
+                                          <td className="py-2 pr-0 text-right">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openDeleteRound(p, r);
+                                              }}
+                                              className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-rose-200 hover:bg-white/10"
+                                            >
+                                              Delete
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                              <p className="mt-3 text-xs text-slate-500">
+                              Admin can delete any round. Removing a tracker archives it from the person but keeps historical rounds.
+                              </p>
+                            </section>
                           </div>
                         )}
                       </div>
@@ -532,11 +820,69 @@ export default function AdminPage() {
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-lg font-semibold text-slate-100">Categories</h2>
+            <h2 className="text-lg font-semibold text-slate-100">Tracker Types & Categories</h2>
             <span className="rounded-full border border-white/10 bg-[#111111]/30 px-2.5 py-1 text-xs text-slate-300">
-              {cats.length} total
+              {trackerTotal} trackers
             </span>
           </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <input
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
+              value={trackerTypeName}
+              onChange={(e) => setTrackerTypeName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addTrackerType();
+              }}
+              placeholder="Tracker type (e.g., Nutrition)"
+            />
+            <button
+              onClick={addTrackerType}
+              disabled={!canAddTrackerType || busy !== null}
+              className="inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === "trackerType" ? "Adding..." : "Add type"}
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              className="w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
+              value={selectedTrackerTypeId}
+              onChange={(e) => setSelectedTrackerTypeId(e.target.value)}
+              style={{ colorScheme: "dark" }}
+              disabled={busy !== null || trackerTypes.length === 0}
+            >
+              {trackerTypes.length === 0 ? (
+                <option className="bg-[#111111] text-slate-100" value="">
+                  No tracker types yet
+                </option>
+              ) : (
+                trackerTypes.map((tt) => (
+                  <option key={tt.id} className="bg-[#111111] text-slate-100" value={tt.id}>
+                    {tt.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              onClick={renameSelectedTrackerType}
+              disabled={!selectedTrackerType || busy !== null}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+            >
+              Rename
+            </button>
+            <button
+              onClick={deleteSelectedTrackerType}
+              disabled={!selectedTrackerType || busy !== null}
+              className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Categories below are scoped to: {selectedTrackerType?.name ?? "No tracker type selected"}.
+          </p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
@@ -634,7 +980,11 @@ export default function AdminPage() {
               ))}
 
               {cats.length === 0 && (
-                <li className="px-4 py-6 text-sm text-slate-400">No categories yet. Add one above.</li>
+                <li className="px-4 py-6 text-sm text-slate-400">
+                  {selectedTrackerTypeId
+                    ? "No categories yet for this tracker type. Add one above."
+                    : "Select or create a tracker type first."}
+                </li>
               )}
             </ul>
           </div>
@@ -741,12 +1091,44 @@ export default function AdminPage() {
         </div>
       )}
 
+      {deleteTrackerOpen && deleteTrackerTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteTrackerOpen(false)} />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">
+              Remove tracker &quot;{deleteTrackerTarget.trackerName}&quot; from {deleteTrackerTarget.personName}?
+            </h3>
+            <p className="mt-2 text-sm text-slate-300">
+              This archives the tracker from active use. Existing rounds are preserved for history.
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setDeleteTrackerOpen(false)}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60"
+                onClick={confirmDeleteTracker}
+                disabled={busy !== null}
+              >
+                {busy === "tracker" ? "Removing..." : "Remove tracker"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteRoundOpen(false)} />
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">
-              Delete {deleteRoundTarget.personName} — Round {deleteRoundTarget.roundNumber}?
+              Delete {deleteRoundTarget.personName} - {deleteRoundTarget.trackerName} - Round {deleteRoundTarget.roundNumber}?
             </h3>
             <p className="mt-2 text-sm text-slate-300">This permanently deletes the round and all entries. This cannot be undone.</p>
 
@@ -840,9 +1222,9 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteCatOpen(false)} />
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
-            <h3 className="text-lg font-semibold text-slate-100">Delete category "{deleteCatTarget.name}"?</h3>
+            <h3 className="text-lg font-semibold text-slate-100">Delete category &quot;{deleteCatTarget.name}&quot;?</h3>
             <p className="mt-2 text-sm text-slate-300">
-              This hides the category from new rounds. Existing rounds keep their snapshot categories.
+              This hides the category from new rounds in &quot;{selectedTrackerType?.name ?? "selected tracker type"}&quot;. Existing rounds keep their snapshot categories.
             </p>
             <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
               <input

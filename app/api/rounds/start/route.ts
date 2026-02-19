@@ -18,12 +18,31 @@ function parseLocalYmdToDate(ymd: string) {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const personId = body?.personId as string | undefined;
+  const trackerIdInput = body?.trackerId as string | undefined;
   const startDateStr = body?.startDate as string | undefined;
   const lengthWeeksInput = body?.lengthWeeks as number | string | undefined;
   const goalWeightInput = body?.goalWeight as number | string | undefined;
 
   if (!personId) {
     return NextResponse.json({ error: "personId required" }, { status: 400 });
+  }
+
+  const tracker = trackerIdInput
+    ? await prisma.tracker.findUnique({
+        where: { id: trackerIdInput },
+        select: { id: true, personId: true, active: true, trackerTypeId: true },
+      })
+    : await prisma.tracker.findFirst({
+        where: { personId, active: true },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, personId: true, active: true, trackerTypeId: true },
+      });
+
+  if (!tracker || tracker.personId !== personId || !tracker.active) {
+    return NextResponse.json(
+      { error: "Active tracker not found for this person." },
+      { status: 404 }
+    );
   }
 
   let lengthWeeks = 8;
@@ -56,7 +75,7 @@ export async function POST(req: Request) {
   type CategoryRow = { id: string; name: string; sortOrder: number };
 
   const categories = (await prisma.category.findMany({
-    where: { active: true },
+    where: { active: true, trackerTypeId: tracker.trackerTypeId },
     orderBy: { sortOrder: "asc" },
     select: { id: true, name: true, sortOrder: true },
   })) as CategoryRow[];
@@ -90,6 +109,7 @@ export async function POST(req: Request) {
     return tx.round.create({
       data: {
         personId,
+        trackerId: tracker.id,
         startDate,
         lengthWeeks,
         ...(goalWeight !== undefined ? { goalWeight } : {}),
@@ -103,7 +123,7 @@ export async function POST(req: Request) {
           },
         },
       },
-      select: { id: true },
+      select: { id: true, trackerId: true },
     });
   });
 
