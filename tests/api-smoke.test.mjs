@@ -84,9 +84,15 @@ test(
           trackerTypeId,
           name: `Smoke Category ${unique}`,
           allowDaysOffPerWeek: 0,
+          allowTreat: false,
+          allowSick: false,
         },
       });
       assert.equal(createCategory.status, 201, "create category should return 201");
+      assert.equal(createCategory.data?.allowTreat, false, "allowTreat should persist");
+      assert.equal(createCategory.data?.allowSick, false, "allowSick should persist");
+      const categoryId = createCategory.data?.id;
+      assert.ok(categoryId, "create category should return id");
 
       const createTracker = await apiRequest("/api/trackers", {
         method: "POST",
@@ -108,6 +114,26 @@ test(
       assert.equal(startRound.status, 201, "start round should return 201");
       const roundId = startRound.data.id;
       assert.ok(roundId);
+
+      const cycleStatuses = [];
+      for (let i = 0; i < 5; i += 1) {
+        const cycleEntry = await apiRequest("/api/entries", {
+          method: "POST",
+          body: {
+            roundId,
+            categoryId,
+            date: "2026-01-05",
+            mode: "cycle",
+          },
+        });
+        assert.equal(cycleEntry.status, 200, "entry cycle should return 200");
+        cycleStatuses.push(cycleEntry.data?.status);
+      }
+      assert.deepEqual(
+        cycleStatuses,
+        ["HALF", "DONE", "OFF", "EMPTY", "HALF"],
+        "cycle should skip Treat/Sick when disabled for category"
+      );
 
       const latestRound = await apiRequest(
         `/api/people/${encodeURIComponent(personId)}/latest-round?trackerId=${encodeURIComponent(trackerId)}`

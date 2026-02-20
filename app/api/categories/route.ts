@@ -12,6 +12,17 @@ function parseApplyToExisting(value: unknown) {
   return false;
 }
 
+function parseOptionalBoolean(value: unknown) {
+  if (value === undefined) return { provided: false as const, value: undefined };
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return { provided: true as const, value: true };
+  }
+  if (value === false || value === "false" || value === 0 || value === "0") {
+    return { provided: true as const, value: false };
+  }
+  return { provided: true as const, error: "must be true or false" };
+}
+
 async function getLatestRoundIdsByTrackerType(
   tx: Prisma.TransactionClient,
   trackerTypeId: string
@@ -43,7 +54,14 @@ export async function GET(req: Request) {
   const cats = await prisma.category.findMany({
     where: { active: true, trackerTypeId },
     orderBy: { sortOrder: "asc" },
-    select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+    select: {
+      id: true,
+      name: true,
+      sortOrder: true,
+      allowDaysOffPerWeek: true,
+      allowTreat: true,
+      allowSick: true,
+    },
   });
 
   return NextResponse.json(cats);
@@ -60,7 +78,11 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
+  const allowTreatParsed = parseOptionalBoolean(body?.allowTreat);
+  const allowSickParsed = parseOptionalBoolean(body?.allowSick);
   let allowDaysOffPerWeek = 0;
+  let allowTreat = true;
+  let allowSick = true;
   if (allowDaysOffInput !== undefined) {
     const parsed =
       typeof allowDaysOffInput === "string" ? Number(allowDaysOffInput) : allowDaysOffInput;
@@ -71,6 +93,19 @@ export async function POST(req: Request) {
       );
     }
     allowDaysOffPerWeek = parsed;
+  }
+
+  if ("error" in allowTreatParsed) {
+    return NextResponse.json({ error: "allowTreat must be true or false." }, { status: 400 });
+  }
+  if ("error" in allowSickParsed) {
+    return NextResponse.json({ error: "allowSick must be true or false." }, { status: 400 });
+  }
+  if (allowTreatParsed.provided) {
+    allowTreat = allowTreatParsed.value;
+  }
+  if (allowSickParsed.provided) {
+    allowSick = allowSickParsed.value;
   }
 
   const applyToExisting = parseApplyToExisting(body?.applyToExisting);
@@ -108,17 +143,38 @@ export async function POST(req: Request) {
   try {
     const responseStatus = existing && !existing.active ? 200 : 201;
     const category = await prisma.$transaction(async (tx) => {
-      let created: { id: string; name: string; sortOrder: number; allowDaysOffPerWeek: number };
+      let created: {
+        id: string;
+        name: string;
+        sortOrder: number;
+        allowDaysOffPerWeek: number;
+        allowTreat: boolean;
+        allowSick: boolean;
+      };
       if (existing && !existing.active) {
         created = await tx.category.update({
           where: { id: existing.id },
-          data: { active: true, sortOrder: nextSort, allowDaysOffPerWeek },
-          select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+          data: { active: true, sortOrder: nextSort, allowDaysOffPerWeek, allowTreat, allowSick },
+          select: {
+            id: true,
+            name: true,
+            sortOrder: true,
+            allowDaysOffPerWeek: true,
+            allowTreat: true,
+            allowSick: true,
+          },
         });
       } else {
         created = await tx.category.create({
-          data: { trackerTypeId, name, sortOrder: nextSort, allowDaysOffPerWeek },
-          select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+          data: { trackerTypeId, name, sortOrder: nextSort, allowDaysOffPerWeek, allowTreat, allowSick },
+          select: {
+            id: true,
+            name: true,
+            sortOrder: true,
+            allowDaysOffPerWeek: true,
+            allowTreat: true,
+            allowSick: true,
+          },
         });
       }
 

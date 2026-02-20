@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.2.0
+
+- Help: added a centralized in-app Help system with a dedicated `/help` page and shared help content source.
+- Help UX: added Help navigation links on Home, People, Person, and Admin pages for quick access.
+- Home: revised layout to show People first, followed by Admin/Help actions, then a cleaner Quick Start section.
+- Home copy: updated setup guidance to explicitly include tracker setup (people, trackers, categories).
+- Help formatting: simplified content into readable lists (less card/button-like visual treatment).
+- Categories: added admin controls to enable/disable `Treat` and `Sick` per category (default on).
+- Entry behavior: status cycling now respects category settings and skips disabled statuses.
+- Admin UX: replaced tracker type rename JS prompt with a proper modal.
+- Admin UX: compacted and clarified tracker-type creation controls and section labels.
+- Person UX: added derived context label showing week start day (for example, "Weeks start on Monday.").
+
 ## v3.1.0
 
 - Quality: resolved lint blockers and warnings so `npm run lint` is clean.

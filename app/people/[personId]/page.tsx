@@ -20,7 +20,13 @@ type Tracker = {
   latestRoundCreatedAt?: string | null;
 };
 
-type Category = { categoryId: string; displayName: string; allowDaysOffPerWeek?: number };
+type Category = {
+  categoryId: string;
+  displayName: string;
+  allowDaysOffPerWeek?: number;
+  allowTreat?: boolean;
+  allowSick?: boolean;
+};
 type WeightUnit = "LBS" | "KG";
 
 type RoundPayload = {
@@ -210,6 +216,12 @@ function formatShort(d: Date) {
   const dd = String(d.getDate()).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(2);
   return `${mm}/${dd}/${yy}`;
+}
+
+function weekStartDayLabel(startDate: string) {
+  const d = parseLocalDay(startDate);
+  const labels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return labels[d.getDay()];
 }
 
 function CompactPct({
@@ -1146,6 +1158,12 @@ export default function PersonPage() {
                 >
                   Admin
                 </Link>
+                <Link 
+                  href={joinIngressPath(ingressPrefix, "/help")}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
+                >
+                  Help
+                </Link>
               </div>
             )}
         </div>
@@ -1251,6 +1269,9 @@ export default function PersonPage() {
             Active round • Start: {round.startDate} • {round.lengthWeeks} weeks
             {roundNumber > 0 ? ` • Round ${roundNumber}` : ""}
           </p>
+          <p className="mt-1 text-sm font-medium text-slate-400">
+            Weeks start on {weekStartDayLabel(round.startDate)}.
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -1261,6 +1282,12 @@ export default function PersonPage() {
                 className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
               >
                 ← People
+              </Link>
+              <Link
+                href={joinIngressPath(ingressPrefix, "/help")}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
+              >
+                Help
               </Link>
 
             <button
@@ -1509,6 +1536,9 @@ export default function PersonPage() {
                 </h3>
                 <p className="mt-1 text-sm text-slate-400">
                   Start: {openRound.startDate} • {openRound.lengthWeeks} weeks • Read-only
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-400">
+                  Weeks start on {weekStartDayLabel(openRound.startDate)}.
                 </p>
               </div>
 

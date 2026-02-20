@@ -5,7 +5,14 @@ import Link from "next/link";
 import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
 
 type Person = { id: string; name: string };
-type Category = { id: string; name: string; sortOrder: number; allowDaysOffPerWeek: number };
+type Category = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  allowDaysOffPerWeek: number;
+  allowTreat: boolean;
+  allowSick: boolean;
+};
 type TrackerType = {
   id: string;
   name: string;
@@ -53,6 +60,8 @@ export default function AdminPage() {
   const [personName, setPersonName] = useState("");
   const [catName, setCatName] = useState("");
   const [catDaysOff, setCatDaysOff] = useState<number>(0);
+  const [catAllowTreat, setCatAllowTreat] = useState(true);
+  const [catAllowSick, setCatAllowSick] = useState(true);
   const [applyCatToExisting, setApplyCatToExisting] = useState(false);
   const [busy, setBusy] = useState<
     "person" | "tracker" | "trackerType" | "category" | "settings" | null
@@ -86,6 +95,8 @@ export default function AdminPage() {
     trackerId: string;
     trackerName: string;
   } | null>(null);
+  const [renameTrackerTypeOpen, setRenameTrackerTypeOpen] = useState(false);
+  const [renameTrackerTypeInput, setRenameTrackerTypeInput] = useState("");
 
   const [deleteCatOpen, setDeleteCatOpen] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string } | null>(null);
@@ -94,6 +105,8 @@ export default function AdminPage() {
   const [editCatTarget, setEditCatTarget] = useState<{ id: string; name: string } | null>(null);
   const [editCatName, setEditCatName] = useState("");
   const [editCatDaysOff, setEditCatDaysOff] = useState<number>(0);
+  const [editCatAllowTreat, setEditCatAllowTreat] = useState(true);
+  const [editCatAllowSick, setEditCatAllowSick] = useState(true);
   const [applyEditCatToExisting, setApplyEditCatToExisting] = useState(false);
 
   const canAddPerson = useMemo(() => personName.trim().length > 0, [personName]);
@@ -304,11 +317,15 @@ export default function AdminPage() {
           trackerTypeId: selectedTrackerTypeId,
           name,
           allowDaysOffPerWeek: catDaysOff,
+          allowTreat: catAllowTreat,
+          allowSick: catAllowSick,
           applyToExisting: applyCatToExisting,
         }),
       });
       setCatName("");
       setCatDaysOff(0);
+      setCatAllowTreat(true);
+      setCatAllowSick(true);
       setApplyCatToExisting(false);
       await refresh();
     } catch (e) {
@@ -344,10 +361,18 @@ export default function AdminPage() {
     setDeleteCatOpen(true);
   }
 
-  function openEditCategory(id: string, name: string, daysOff: number) {
+  function openEditCategory(
+    id: string,
+    name: string,
+    daysOff: number,
+    allowTreat: boolean,
+    allowSick: boolean
+  ) {
     setEditCatTarget({ id, name });
     setEditCatName(name);
     setEditCatDaysOff(daysOff);
+    setEditCatAllowTreat(allowTreat);
+    setEditCatAllowSick(allowSick);
     setApplyEditCatToExisting(false);
     setEditCatOpen(true);
   }
@@ -373,11 +398,15 @@ export default function AdminPage() {
         body: JSON.stringify({
           name,
           allowDaysOffPerWeek: editCatDaysOff,
+          allowTreat: editCatAllowTreat,
+          allowSick: editCatAllowSick,
           applyToExisting: applyEditCatToExisting,
         }),
       });
       setEditCatOpen(false);
       setEditCatTarget(null);
+      setEditCatAllowTreat(true);
+      setEditCatAllowSick(true);
       setApplyEditCatToExisting(false);
       if (selectedTrackerTypeId) {
         await loadCategories(selectedTrackerTypeId);
@@ -452,12 +481,19 @@ export default function AdminPage() {
     }
   }
 
-  async function renameSelectedTrackerType() {
+  function openRenameTrackerType() {
     if (!selectedTrackerType) return;
-    const nextName = window.prompt("Rename tracker type", selectedTrackerType.name);
-    if (!nextName) return;
-    const trimmed = nextName.trim();
-    if (!trimmed) return;
+    setRenameTrackerTypeInput(selectedTrackerType.name);
+    setRenameTrackerTypeOpen(true);
+  }
+
+  async function confirmRenameTrackerType() {
+    if (!selectedTrackerType) return;
+    const trimmed = renameTrackerTypeInput.trim();
+    if (!trimmed) {
+      alert("Tracker type name is required.");
+      return;
+    }
 
     setBusy("trackerType");
     try {
@@ -466,6 +502,8 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
       });
+      setRenameTrackerTypeOpen(false);
+      setRenameTrackerTypeInput("");
       await refresh();
     } catch (e) {
       console.error(e);
@@ -634,6 +672,12 @@ export default function AdminPage() {
             className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
           >
             People
+          </Link>
+          <Link
+            href={joinIngressPath(ingressPrefix, "/help")}
+            className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10"
+          >
+            Help
           </Link>
           <a
             href={homeHref}
@@ -826,7 +870,8 @@ export default function AdminPage() {
             </span>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <p className="mt-3 text-xs text-slate-400">Create new tracker type</p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
               className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
               value={trackerTypeName}
@@ -834,18 +879,19 @@ export default function AdminPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") addTrackerType();
               }}
-              placeholder="Tracker type (e.g., Nutrition)"
+              placeholder="Name (e.g., Nutrition)"
             />
             <button
               onClick={addTrackerType}
               disabled={!canAddTrackerType || busy !== null}
-              className="inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy === "trackerType" ? "Adding..." : "Add type"}
+              {busy === "trackerType" ? "Creating..." : "Create"}
             </button>
           </div>
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <p className="mt-3 text-xs text-slate-400">Configure tracker types</p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
               className="w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
               value={selectedTrackerTypeId}
@@ -866,7 +912,7 @@ export default function AdminPage() {
               )}
             </select>
             <button
-              onClick={renameSelectedTrackerType}
+              onClick={openRenameTrackerType}
               disabled={!selectedTrackerType || busy !== null}
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
             >
@@ -916,6 +962,28 @@ export default function AdminPage() {
               {busy === "category" ? "Adding..." : "Add"}
             </button>
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+                checked={catAllowTreat}
+                onChange={(e) => setCatAllowTreat(e.target.checked)}
+                disabled={busy !== null}
+              />
+              Enable Treat
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+                checked={catAllowSick}
+                onChange={(e) => setCatAllowSick(e.target.checked)}
+                disabled={busy !== null}
+              />
+              Enable Sick
+            </label>
+          </div>
           <label className="mt-2 flex items-center gap-2 text-xs text-slate-300">
             <input
               type="checkbox"
@@ -929,6 +997,9 @@ export default function AdminPage() {
           <p className="mt-2 text-xs text-slate-500">
             Max {MAX_ACTIVE_CATEGORIES} categories. Delete one to add a new category.
           </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Days off and Treat/Sick settings are category-level and apply across trackers/rounds for this tracker type.
+          </p>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#111111]/20">
             <ul className="divide-y divide-white/10">
@@ -939,6 +1010,9 @@ export default function AdminPage() {
                     <div className="text-xs text-slate-500">Sort: {c.sortOrder}</div>
                     <div className="text-xs text-slate-500">
                       Days off/week: {c.allowDaysOffPerWeek}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Treat: {c.allowTreat ? "On" : "Off"} • Sick: {c.allowSick ? "On" : "Off"}
                     </div>
                   </div>
 
@@ -960,7 +1034,15 @@ export default function AdminPage() {
                       ↓
                     </button>
                     <button
-                      onClick={() => openEditCategory(c.id, c.name, c.allowDaysOffPerWeek)}
+                      onClick={() =>
+                        openEditCategory(
+                          c.id,
+                          c.name,
+                          c.allowDaysOffPerWeek,
+                          c.allowTreat,
+                          c.allowSick
+                        )
+                      }
                       disabled={busy !== null}
                       className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
                       title="Edit name"
@@ -1123,6 +1205,53 @@ export default function AdminPage() {
         </div>
       )}
 
+      {renameTrackerTypeOpen && selectedTrackerType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => busy === null && setRenameTrackerTypeOpen(false)}
+          />
+          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
+            <h3 className="text-lg font-semibold text-slate-100">Rename tracker type</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Update the tracker type name used across admin and tracker selection.
+            </p>
+            <div className="mt-4">
+              <label className="text-sm font-medium text-slate-200">Name</label>
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-100 outline-none focus:border-amber-400/60"
+                value={renameTrackerTypeInput}
+                onChange={(e) => setRenameTrackerTypeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    void confirmRenameTrackerType();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+                onClick={() => setRenameTrackerTypeOpen(false)}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400 disabled:opacity-60"
+                onClick={confirmRenameTrackerType}
+                disabled={busy !== null}
+              >
+                {busy === "trackerType" ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteRoundOpen && deleteRoundTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => busy === null && setDeleteRoundOpen(false)} />
@@ -1159,7 +1288,7 @@ export default function AdminPage() {
           <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
             <h3 className="text-lg font-semibold text-slate-100">Edit category</h3>
             <p className="mt-2 text-sm text-slate-300">
-              This updates the category name for future rounds. You can optionally apply the new name to the latest rounds.
+              Category options (days off, Treat, Sick) update globally. Name can optionally be applied to latest rounds.
             </p>
 
             <div className="mt-4">
@@ -1186,6 +1315,28 @@ export default function AdminPage() {
                 <option className="bg-[#111111] text-slate-100" value={5}>5 days off/wk</option>
               </select>
             </div>
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+                  checked={editCatAllowTreat}
+                  onChange={(e) => setEditCatAllowTreat(e.target.checked)}
+                  disabled={busy !== null}
+                />
+                Enable Treat
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border border-white/20 bg-[#111111]/60 text-emerald-400 focus:ring-emerald-400/30"
+                  checked={editCatAllowSick}
+                  onChange={(e) => setEditCatAllowSick(e.target.checked)}
+                  disabled={busy !== null}
+                />
+                Enable Sick
+              </label>
+            </div>
             <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
               <input
                 type="checkbox"
@@ -1194,7 +1345,7 @@ export default function AdminPage() {
                 onChange={(e) => setApplyEditCatToExisting(e.target.checked)}
                 disabled={busy !== null}
               />
-              Apply name change to latest rounds
+              Apply name change to latest rounds only
             </label>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

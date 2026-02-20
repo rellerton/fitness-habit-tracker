@@ -55,7 +55,9 @@ export default function StatusLegend() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-semibold text-slate-200">Status legend</div>
-            <div className="text-xs text-slate-400">Tap a wedge to cycle through these</div>
+            <div className="text-xs text-slate-400">
+              Tap a wedge to cycle through these. Treat/Sick can be disabled per category.
+            </div>
           </div>
         </div>
 

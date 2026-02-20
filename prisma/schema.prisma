@@ -45,17 +45,19 @@ model Tracker {
 }
 
 model Category {
-  id                 String      @id @default(cuid())
-  trackerTypeId      String
-  name               String
-  sortOrder          Int         @default(0)
-  allowDaysOffPerWeek Int @default(0)
-  active             Boolean     @default(true)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  trackerType        TrackerType @relation(fields: [trackerTypeId], references: [id], onDelete: Restrict)
-  roundCategories RoundCategory[]
-  entries         Entry[]
+  id                  String          @id @default(cuid())
+  trackerTypeId       String
+  name                String
+  sortOrder           Int             @default(0)
+  allowDaysOffPerWeek Int             @default(0)
+  allowTreat          Boolean         @default(true)
+  allowSick           Boolean         @default(true)
+  active              Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  trackerType         TrackerType     @relation(fields: [trackerTypeId], references: [id], onDelete: Restrict)
+  roundCategories     RoundCategory[]
+  entries             Entry[]
 
   @@unique([trackerTypeId, name])
   @@index([trackerTypeId, active, sortOrder])

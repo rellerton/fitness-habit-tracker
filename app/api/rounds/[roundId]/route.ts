@@ -43,7 +43,7 @@ export async function GET(
         select: {
           categoryId: true,
           displayName: true,
-          category: { select: { allowDaysOffPerWeek: true } },
+          category: { select: { allowDaysOffPerWeek: true, allowTreat: true, allowSick: true } },
         },
       },
       entries: true,
@@ -59,6 +59,8 @@ const normalized = {
     categoryId: c.categoryId,
     displayName: c.displayName,
     allowDaysOffPerWeek: c.category?.allowDaysOffPerWeek ?? 0,
+    allowTreat: c.category?.allowTreat ?? true,
+    allowSick: c.category?.allowSick ?? true,
   })),
   entries: round.entries.map((e) => ({
     ...e,

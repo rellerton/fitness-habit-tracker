@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiUrl, joinIngressPath, useIngressPrefix } from "@/lib/ingress";
+import { QUICK_START_STEPS } from "@/lib/help-content";
 
 type Person = { id: string; name: string };
 
@@ -45,18 +46,9 @@ export default function Home() {
 
         <p className="mt-3 max-w-xl text-sm text-slate-400">
           Track daily habits across multiple categories using a circular grid in 4 or 8 week
-          rounds. Start by setting up people and categories, then jump into an active
+          rounds. Start by setting up people, trackers, and categories, then jump into an active
           round.
         </p>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href={joinIngressPath(ingressPrefix, "/admin")}
-            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400"
-          >
-            Admin
-          </Link>
-        </div>
 
         <div className="mt-8 border-t border-white/10 pt-6">
           <h2 className="text-base font-semibold text-slate-100">People</h2>
@@ -85,6 +77,41 @@ export default function Home() {
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href={joinIngressPath(ingressPrefix, "/admin")}
+            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400"
+          >
+            Admin
+          </Link>
+          <Link
+            href={joinIngressPath(ingressPrefix, "/help")}
+            className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:bg-white/10"
+          >
+            Help
+          </Link>
+        </div>
+
+        <div className="mt-8 border-t border-white/10 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-100">Quick Start</h2>
+              <p className="mt-1 text-sm text-slate-400">Most users can be up and running in under 2 minutes.</p>
+            </div>
+            <Link
+              href={joinIngressPath(ingressPrefix, "/help")}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10"
+            >
+              Full help
+            </Link>
+          </div>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+            {QUICK_START_STEPS.map((step, idx) => (
+              <li key={`quick-home-${idx}`}>{step}</li>
+            ))}
+          </ol>
         </div>
       </div>
     </main>

@@ -6,6 +6,8 @@ type Category = {
   categoryId: string;
   displayName: string;
   allowDaysOffPerWeek?: number;
+  allowTreat?: boolean;
+  allowSick?: boolean;
 };
 
 type WeightEntry = {
@@ -57,6 +59,10 @@ function formatWeekdayShort(yyyyMMdd: string) {
   const d = parseLocalDay(yyyyMMdd);
   const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return labels[d.getDay()];
+}
+
+function formatDayLabel(yyyyMMdd: string) {
+  return `${formatWeekdayShort(yyyyMMdd)} ${formatMMDD(yyyyMMdd)}`;
 }
 
 function polar(cx: number, cy: number, r: number, angleRad: number) {
@@ -220,6 +226,8 @@ export default function RoundWheel({
   const [zoomTarget, setZoomTarget] = useState<{ weekIdx: number } | null>(null);
   const [hoverWeekIdx, setHoverWeekIdx] = useState<number | null>(null);
   const [pinnedWeekIdx, setPinnedWeekIdx] = useState<number | null>(null);
+  const [hoverDay, setHoverDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const totalDays = lengthWeeks * 7;
   const labelDays = 7;
@@ -351,6 +359,10 @@ export default function RoundWheel({
   const zoomWeekWeight = activeZoomTarget ? weightByWeekIdx.get(activeZoomTarget.weekIdx) : undefined;
   const tooltipWeekIdx = activePinnedWeekIdx ?? activeHoverWeekIdx;
   const tooltipWeight = tooltipWeekIdx !== null ? weightByWeekIdx.get(tooltipWeekIdx) : undefined;
+  const activeDay = useMemo(() => {
+    const day = hoverDay ?? selectedDay;
+    return day && days.includes(day) ? day : null;
+  }, [days, hoverDay, selectedDay]);
 
   function getWeekPercent(weekIdx: number, cat: Category) {
     const cached = weekPercentByCategory.get(cat.categoryId);
@@ -719,16 +731,19 @@ export default function RoundWheel({
                     stroke="rgba(255,255,255,0.10)"
                     strokeWidth={1}
                     className="cursor-pointer transition-opacity hover:opacity-95"
+                    onMouseEnter={() => setHoverDay(day)}
+                    onMouseLeave={() => setHoverDay(null)}
                     onClick={() => {
                       if (isSmallScreen) {
                         setZoomTarget({ weekIdx: Math.floor(dayIdx / 7) });
                         return;
                       }
+                      setSelectedDay(day);
                       onCellClick(roundId, cat.categoryId, day);
                     }}
                   >
                     <title>
-                      {cat.displayName} • {day} • {status}
+                      {cat.displayName} • {formatWeekdayShort(day)} {day} • {status}
                     </title>
                   </path>
 
@@ -857,6 +872,19 @@ export default function RoundWheel({
           >
             {`Round ${roundNumber}`}
           </text>
+          {activeDay && (
+            <text
+              x={cx}
+              y={cy - 34}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="rgba(148,163,184,0.95)"
+              fontSize={10}
+              style={{ fontWeight: 700, letterSpacing: 0.2 }}
+            >
+              {formatDayLabel(activeDay)}
+            </text>
+          )}
 
         </svg>
         {tooltipPos && tooltipWeekIdx !== null && (

@@ -10,6 +10,17 @@ function parseApplyToExisting(value: unknown) {
   return false;
 }
 
+function parseOptionalBoolean(value: unknown) {
+  if (value === undefined) return { provided: false as const, value: undefined };
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return { provided: true as const, value: true };
+  }
+  if (value === false || value === "false" || value === 0 || value === "0") {
+    return { provided: true as const, value: false };
+  }
+  return { provided: true as const, error: "must be true or false" };
+}
+
 async function getLatestRoundIdsByTrackerType(
   tx: Prisma.TransactionClient,
   trackerTypeId: string
@@ -89,8 +100,12 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   const name = (body?.name as string | undefined)?.trim();
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
+  const allowTreatParsed = parseOptionalBoolean(body?.allowTreat);
+  const allowSickParsed = parseOptionalBoolean(body?.allowSick);
   const applyToExisting = parseApplyToExisting(body?.applyToExisting);
   let allowDaysOffPerWeek: number | undefined;
+  let allowTreat: boolean | undefined;
+  let allowSick: boolean | undefined;
 
   if (!name) {
     return NextResponse.json({ error: "name required" }, { status: 400 });
@@ -106,6 +121,19 @@ export async function PATCH(
       );
     }
     allowDaysOffPerWeek = parsed;
+  }
+
+  if ("error" in allowTreatParsed) {
+    return NextResponse.json({ error: "allowTreat must be true or false." }, { status: 400 });
+  }
+  if ("error" in allowSickParsed) {
+    return NextResponse.json({ error: "allowSick must be true or false." }, { status: 400 });
+  }
+  if (allowTreatParsed.provided) {
+    allowTreat = allowTreatParsed.value;
+  }
+  if (allowSickParsed.provided) {
+    allowSick = allowSickParsed.value;
   }
 
   const exists = await prisma.category.findUnique({
@@ -124,8 +152,17 @@ export async function PATCH(
         data: {
           name,
           ...(allowDaysOffPerWeek !== undefined ? { allowDaysOffPerWeek } : {}),
+          ...(allowTreat !== undefined ? { allowTreat } : {}),
+          ...(allowSick !== undefined ? { allowSick } : {}),
         },
-        select: { id: true, name: true, sortOrder: true, allowDaysOffPerWeek: true },
+        select: {
+          id: true,
+          name: true,
+          sortOrder: true,
+          allowDaysOffPerWeek: true,
+          allowTreat: true,
+          allowSick: true,
+        },
       });
 
       if (applyToExisting) {

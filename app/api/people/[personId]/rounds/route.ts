@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 type RoundCategoryRow = {
   categoryId: string;
   displayName: string;
-  category: { allowDaysOffPerWeek: number };
+  category: { allowDaysOffPerWeek: number; allowTreat: boolean; allowSick: boolean };
 };
 type EntryRow = { categoryId: string; date: Date; status: string };
 type WeightRow = { weekIndex: number; weight: number; date: Date };
@@ -40,7 +40,13 @@ type RoundHistoryItem = {
     trackerTypeName: string;
   };
   roundNumber: number;
-  roundCategories: { categoryId: string; displayName: string; allowDaysOffPerWeek: number }[];
+  roundCategories: {
+    categoryId: string;
+    displayName: string;
+    allowDaysOffPerWeek: number;
+    allowTreat: boolean;
+    allowSick: boolean;
+  }[];
   entries: { categoryId: string; date: string; status: string }[]; // date = YYYY-MM-DD
   weightEntries: { weekIndex: number; weight: number; date: string }[];
 };
@@ -96,7 +102,7 @@ export async function GET(
         select: {
           categoryId: true,
           displayName: true,
-          category: { select: { allowDaysOffPerWeek: true } },
+          category: { select: { allowDaysOffPerWeek: true, allowTreat: true, allowSick: true } },
         },
       },
       entries: {
@@ -126,6 +132,8 @@ export async function GET(
       categoryId: c.categoryId,
       displayName: c.displayName,
       allowDaysOffPerWeek: c.category?.allowDaysOffPerWeek ?? 0,
+      allowTreat: c.category?.allowTreat ?? true,
+      allowSick: c.category?.allowSick ?? true,
     })),
     entries: r.entries.map((e: EntryRow) => ({
       categoryId: e.categoryId,

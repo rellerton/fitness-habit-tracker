@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const cycle = ["EMPTY", "HALF", "DONE", "OFF", "TREAT", "SICK"] as const;
-type EntryStatus = (typeof cycle)[number];
+const baseCycle = ["EMPTY", "HALF", "DONE", "OFF"] as const;
+const optionalStatuses = ["TREAT", "SICK"] as const;
+const allStatuses = [...baseCycle, ...optionalStatuses] as const;
+type EntryStatus = (typeof allStatuses)[number];
 
 function asEntryStatus(value: unknown): EntryStatus {
-  return cycle.includes(value as EntryStatus) ? (value as EntryStatus) : "EMPTY";
+  return allStatuses.includes(value as EntryStatus) ? (value as EntryStatus) : "EMPTY";
+}
+
+function cycleForCategory(allowTreat: boolean, allowSick: boolean): EntryStatus[] {
+  return [
+    ...baseCycle,
+    ...(allowTreat ? (["TREAT"] as const) : []),
+    ...(allowSick ? (["SICK"] as const) : []),
+  ];
 }
 
 export async function POST(req: Request) {
@@ -34,6 +44,15 @@ export async function POST(req: Request) {
     // (optional) select only what we need; sometimes helps TS inference
     select: { status: true },
   });
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { id: true, allowTreat: true, allowSick: true },
+  });
+  if (!category) {
+    return NextResponse.json({ error: "Category not found" }, { status: 404 });
+  }
+
+  const cycle = cycleForCategory(category.allowTreat, category.allowSick);
 
   let nextStatus: EntryStatus;
 
@@ -45,7 +64,7 @@ export async function POST(req: Request) {
   } else {
     const current = asEntryStatus(existing?.status);
     const idx = cycle.indexOf(current);
-    nextStatus = cycle[(idx + 1) % cycle.length];
+    nextStatus = idx >= 0 ? cycle[(idx + 1) % cycle.length] : cycle[0];
   }
 
   const entry = await prisma.entry.upsert({
