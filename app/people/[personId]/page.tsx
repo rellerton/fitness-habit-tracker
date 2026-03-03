@@ -1430,153 +1430,218 @@ export default function PersonPage() {
             No previous rounds yet.
           </div>
         ) : (
-          <div className="mt-4 overflow-x-hidden rounded-2xl border border-white/10 bg-white/5">
-            <table className="w-full table-fixed border-collapse">
-              <thead className="bg-white/5">
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
-                  <th className="px-4 py-3">Round</th>
-                  <th className="px-4 py-3">Start</th>
-                  <th className="px-4 py-3">End</th>
-                  <th className="px-4 py-3">Weeks</th>
-                  <th className="px-4 py-3">Total %</th>
-                  {round.roundCategories.map((c) => (
-                    <th key={c.categoryId} className="px-4 py-3">
-                      {c.displayName} %
-                    </th>
-                  ))}
-                  <th className="px-3 py-3">Delete</th>
-                </tr>
-              </thead>
+          <>
+            <div className="mt-4 space-y-3 md:hidden">
+              {inactiveRounds.map((r) => {
+                const start = parseLocalDay(r.startDate);
+                const end = new Date(start);
+                end.setDate(end.getDate() + r.lengthWeeks * 7 - 1);
+                const totalPct = calcTotalPercent(r);
 
-              <tbody>
-                {inactiveRounds.map((r) => {
-                  const start = parseLocalDay(r.startDate);
-                  const end = new Date(start);
-                  end.setDate(end.getDate() + r.lengthWeeks * 7 - 1);
+                return (
+                  <article
+                    key={r.id}
+                    className="rounded-xl border border-white/10 bg-white/5 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        className="text-sm font-semibold text-sky-300 hover:text-sky-200 underline underline-offset-2"
+                        onClick={() => setOpenRound(r)}
+                      >
+                        Round {r.roundNumber}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeletePrompt(
+                            r.id,
+                            r.roundNumber,
+                            r.tracker?.name ?? selectedTracker?.name ?? "Tracker"
+                          );
+                        }}
+                        className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10"
+                        title="Delete this round"
+                      >
+                        Delete
+                      </button>
+                    </div>
 
-                  const fmt = (d: Date) => {
-                    const mm = String(d.getMonth() + 1).padStart(2, "0");
-                    const dd = String(d.getDate()).padStart(2, "0");
-                    const yy = String(d.getFullYear()).slice(2);
-                    return `${mm}/${dd}/${yy}`;
-                  };
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-300">
+                      <span>Start {formatShort(start)}</span>
+                      <span>End {formatShort(end)}</span>
+                      <span>{r.lengthWeeks}w</span>
+                    </div>
 
-                  const totalPct = calcTotalPercent(r);
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-300">Total</span>
+                      <CompactPct pct={totalPct} tone="total" barWidthClass="w-24" />
+                    </div>
 
-                  return (
-                    <tr key={r.id} className="border-t border-white/10 text-sm text-slate-200">
-                      <td className="px-3 py-2">
-                        <button
-                          className="text-sky-300 hover:text-sky-200 underline underline-offset-2 whitespace-nowrap"
-                          onClick={() => setOpenRound(r)}
-                        >
-                          Round {r.roundNumber}
-                        </button>
-                      </td>
-
-                      <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{fmt(start)}</td>
-                      <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{fmt(end)}</td>
-                      <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{r.lengthWeeks}w</td>
-
-                      {/* Total % */}
-                      <td className="px-3 py-2">
-                        <CompactPct pct={totalPct} tone="total" />
-                      </td>
-
-                      {/* Per-category % */}
+                    <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
                       {round.roundCategories.map((c) => {
                         const match = r.roundCategories.find((rc) => rc.categoryId === c.categoryId);
                         const allowed = match?.allowDaysOffPerWeek ?? 0;
                         const pct = calcCategoryPercent(r, c.categoryId, allowed);
                         return (
-                          <td key={`${r.id}-${c.categoryId}`} className="px-3 py-2">
-                            <CompactPct pct={pct} tone="cat" />
-                          </td>
+                          <div
+                            key={`${r.id}-${c.categoryId}`}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <span className="min-w-0 truncate text-xs text-slate-300">
+                              {match?.displayName ?? c.displayName}
+                            </span>
+                            <CompactPct
+                              pct={pct}
+                              tone="cat"
+                              barWidthClass="w-20"
+                              gapClass="gap-1"
+                            />
+                          </div>
                         );
                       })}
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDeletePrompt(
-                              r.id,
-                              r.roundNumber,
-                              r.tracker?.name ?? selectedTracker?.name ?? "Tracker"
-                            );
-                          }}
-                          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10"
-                          title="Delete this round"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
 
+            <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-white/10 bg-white/5 md:block">
+              <table className="min-w-[860px] w-full border-collapse">
+                <thead className="bg-white/5">
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
+                    <th className="px-4 py-3 whitespace-nowrap">Round</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Start</th>
+                    <th className="px-4 py-3 whitespace-nowrap">End</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Weeks</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Total %</th>
+                    {round.roundCategories.map((c) => (
+                      <th key={c.categoryId} className="px-4 py-3 whitespace-nowrap">
+                        {c.displayName} %
+                      </th>
+                    ))}
+                    <th className="px-3 py-3 whitespace-nowrap">Delete</th>
+                  </tr>
+                </thead>
 
-              </tbody>
-            </table>
-          </div>
+                <tbody>
+                  {inactiveRounds.map((r) => {
+                    const start = parseLocalDay(r.startDate);
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + r.lengthWeeks * 7 - 1);
+                    const totalPct = calcTotalPercent(r);
+
+                    return (
+                      <tr key={r.id} className="border-t border-white/10 text-sm text-slate-200">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <button
+                            className="text-sky-300 hover:text-sky-200 underline underline-offset-2"
+                            onClick={() => setOpenRound(r)}
+                          >
+                            Round {r.roundNumber}
+                          </button>
+                        </td>
+
+                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatShort(start)}</td>
+                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatShort(end)}</td>
+                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{r.lengthWeeks}w</td>
+
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <CompactPct pct={totalPct} tone="total" />
+                        </td>
+
+                        {round.roundCategories.map((c) => {
+                          const match = r.roundCategories.find((rc) => rc.categoryId === c.categoryId);
+                          const allowed = match?.allowDaysOffPerWeek ?? 0;
+                          const pct = calcCategoryPercent(r, c.categoryId, allowed);
+                          return (
+                            <td key={`${r.id}-${c.categoryId}`} className="px-3 py-2 whitespace-nowrap">
+                              <CompactPct pct={pct} tone="cat" />
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeletePrompt(
+                                r.id,
+                                r.roundNumber,
+                                r.tracker?.name ?? selectedTracker?.name ?? "Tracker"
+                              );
+                            }}
+                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-white/10"
+                            title="Delete this round"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
       {/* Round View Modal */}
       {openRound && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/70"
             onClick={() => setOpenRound(null)}
           />
-          <div className="relative w-[96vw] max-w-[980px] rounded-2xl border border-white/10 bg-[#111111]/85 p-5 shadow-2xl backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-100">
-                  {person?.name ?? "Person"} — Round {openRound.roundNumber}
-                </h3>
-                <p className="mt-1 text-sm text-slate-400">
-                  Start: {openRound.startDate} • {openRound.lengthWeeks} weeks • Read-only
-                </p>
-                <p className="mt-1 text-sm font-medium text-slate-400">
-                  Weeks start on {weekStartDayLabel(openRound.startDate)}.
-                </p>
+          <div className="relative h-full overflow-y-auto px-2 py-2 sm:px-4 sm:py-4">
+            <div className="mx-auto w-[96vw] max-w-[980px] rounded-2xl border border-white/10 bg-[#111111]/85 p-4 shadow-2xl backdrop-blur sm:p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-100">
+                    {person?.name ?? "Person"} — Round {openRound.roundNumber}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Start: {openRound.startDate} • {openRound.lengthWeeks} weeks • Read-only
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-400">
+                    Weeks start on {weekStartDayLabel(openRound.startDate)}.
+                  </p>
+                </div>
+
+                <button
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10"
+                  onClick={() => setOpenRound(null)}
+                >
+                  Close
+                </button>
               </div>
 
-              <button
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10"
-                onClick={() => setOpenRound(null)}
-              >
-                Close
-              </button>
-            </div>
-
-            {/* Read-only: pointer-events-none prevents clicking */}
-            <div className="mt-4 pointer-events-none">
-              <RoundWheel
-                roundId={openRound.id}
-                roundNumber={openRound.roundNumber}
-                personName={person?.name}
-                startDate={String(openRound.startDate)}
+              <div className="mt-4 pointer-events-none">
+                <RoundWheel
+                  roundId={openRound.id}
+                  roundNumber={openRound.roundNumber}
+                  personName={person?.name}
+                  startDate={String(openRound.startDate)}
+                  lengthWeeks={openRound.lengthWeeks}
+                  categories={openRound.roundCategories}
+                  entries={openRound.entries}
+                  weightEntries={openRound.weightEntries}
+                  weightUnit={weightUnit}
+                  onCellClick={() => {}}
+                />
+              </div>
+              <RoundSummaryPanel
+                round={openRound}
+                completedWeeks={openRound.lengthWeeks}
+                title="Summary (full round)"
+              />
+              <WeightChart
                 lengthWeeks={openRound.lengthWeeks}
-                categories={openRound.roundCategories}
-                entries={openRound.entries}
-                weightEntries={openRound.weightEntries}
+                weightEntries={openRound.weightEntries ?? []}
+                title="Weight by week (history)"
+                goalWeight={openRound.goalWeight ?? null}
                 weightUnit={weightUnit}
-                onCellClick={() => {}}
               />
             </div>
-            <RoundSummaryPanel
-              round={openRound}
-              completedWeeks={openRound.lengthWeeks}
-              title="Summary (full round)"
-            />
-            <WeightChart
-              lengthWeeks={openRound.lengthWeeks}
-              weightEntries={openRound.weightEntries ?? []}
-              title="Weight by week (history)"
-              goalWeight={openRound.goalWeight ?? null}
-              weightUnit={weightUnit}
-            />
           </div>
         </div>
       )}

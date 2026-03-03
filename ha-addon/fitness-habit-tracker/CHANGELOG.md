@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.2.1
+
+- Round history (mobile): replaced compressed table rendering with a readable card layout for completed rounds.
+- Historical round modal: fixed vertical scrolling behavior so full round content is scrollable on smaller viewports.
+- Historical round modal: restored normal round wheel sizing to prevent unintended overflow introduced by the prior modal wrapper.
+
 ## v3.2.0
 
 - Help: added a centralized in-app Help system with a dedicated `/help` page and shared help content source.
