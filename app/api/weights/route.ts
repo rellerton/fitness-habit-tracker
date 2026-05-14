@@ -8,6 +8,19 @@ function ymd(d: Date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function dayNumber(s: string) {
+  const [year, month, day] = String(s)
+    .slice(0, 10)
+    .split("-")
+    .map(Number);
+
+  if (!year || !month || !day) {
+    throw new Error(`Invalid date string: ${s}`);
+  }
+
+  return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
+}
+
 function parseLocalDay(s: string) {
   const ymdStr = String(s).slice(0, 10);
   const d = new Date(`${ymdStr}T00:00:00`);
@@ -64,10 +77,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Round not found" }, { status: 404 });
   }
 
-  const startLocal = parseLocalDay(ymd(round.startDate));
-  const diffDays = Math.floor(
-    (date.getTime() - startLocal.getTime()) / (24 * 60 * 60 * 1000)
-  );
+  const diffDays = dayNumber(dateStr) - dayNumber(ymd(round.startDate));
 
   if (diffDays < 0 || diffDays >= round.lengthWeeks * 7) {
     return NextResponse.json(

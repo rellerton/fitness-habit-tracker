@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.2.2
+
+- Weights: fixed week assignment when saving entries across daylight saving time boundaries, preventing later-week edits from being stored against the prior week.
+
 ## v3.2.1
 
 - Round history (mobile): replaced compressed table rendering with a readable card layout for completed rounds.
