@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function ymd(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
+import { formatYmd } from "@/lib/dates";
 
 export async function GET(
   req: Request,
@@ -92,7 +86,7 @@ export async function GET(
 
   const normalized = {
     ...latest,
-    startDate: ymd(latest.startDate),
+    startDate: formatYmd(latest.startDate),
     goalWeight: latest.goalWeight ?? null,
     roundCategories: latest.roundCategories.map((c) => ({
       categoryId: c.categoryId,
@@ -104,12 +98,12 @@ export async function GET(
     // Normalize entry dates too so the UI never sees "...Z"
     entries: latest.entries.map((e) => ({
       ...e,
-      date: ymd(e.date),
+      date: formatYmd(e.date),
     })),
     weightEntries: latest.weightEntries.map((w) => ({
       weekIndex: w.weekIndex,
       weight: w.weight,
-      date: ymd(w.date),
+      date: formatYmd(w.date),
     })),
   };
 

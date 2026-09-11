@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requiredName } from "@/lib/validation";
 
 const DEFAULT_TRACKER_TYPE_NAME = "Default";
 
@@ -10,8 +11,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const name = body?.name?.trim();
-  if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
+  const nameResult = requiredName(body?.name, "name");
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
+  }
+  const name = nameResult.value;
 
   const person = await prisma.$transaction(async (tx) => {
     const trackerType = await tx.trackerType.upsert({

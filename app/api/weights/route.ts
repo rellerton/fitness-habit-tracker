@@ -1,69 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function ymd(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function dayNumber(s: string) {
-  const [year, month, day] = String(s)
-    .slice(0, 10)
-    .split("-")
-    .map(Number);
-
-  if (!year || !month || !day) {
-    throw new Error(`Invalid date string: ${s}`);
-  }
-
-  return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
-}
-
-function parseLocalDay(s: string) {
-  const ymdStr = String(s).slice(0, 10);
-  const d = new Date(`${ymdStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) {
-    throw new Error(`Invalid date string: ${s}`);
-  }
-  return d;
-}
+import { differenceInCalendarDays, formatYmd, parseLocalYmd } from "@/lib/dates";
+import { positiveNumber, requiredString } from "@/lib/validation";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const roundId = body?.roundId as string | undefined;
-  const dateStr = body?.date as string | undefined;
-  const weightInput = body?.weight as number | string | undefined;
+  const roundIdResult = requiredString(body?.roundId, "roundId");
 
-  if (!roundId || !dateStr) {
+  if ("error" in roundIdResult) {
+    return NextResponse.json({ error: roundIdResult.error }, { status: 400 });
+  }
+  const roundId = roundIdResult.value;
+
+  const weightResult = positiveNumber(body?.weight, "weight");
+  if ("error" in weightResult) {
+    return NextResponse.json({ error: weightResult.error }, { status: 400 });
+  }
+  const weight = weightResult.value;
+
+  const date = parseLocalYmd(body?.date);
+  if (!date) {
     return NextResponse.json(
-      { error: "roundId and date are required" },
-      { status: 400 }
-    );
-  }
-
-  let weight: number | null = null;
-  if (weightInput !== undefined && weightInput !== null && weightInput !== "") {
-    const parsed = typeof weightInput === "string" ? Number(weightInput) : weightInput;
-    if (Number.isFinite(parsed)) {
-      weight = parsed;
-    }
-  }
-
-  if (weight === null) {
-    return NextResponse.json({ error: "weight is required" }, { status: 400 });
-  }
-  if (weight <= 0) {
-    return NextResponse.json({ error: "weight must be > 0" }, { status: 400 });
-  }
-
-  let date: Date;
-  try {
-    date = parseLocalDay(dateStr);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message ?? "Invalid date" },
+      { error: "date must be a valid calendar date in YYYY-MM-DD format" },
       { status: 400 }
     );
   }
@@ -77,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Round not found" }, { status: 404 });
   }
 
-  const diffDays = dayNumber(dateStr) - dayNumber(ymd(round.startDate));
+  const diffDays = differenceInCalendarDays(date, round.startDate);
 
   if (diffDays < 0 || diffDays >= round.lengthWeeks * 7) {
     return NextResponse.json(
@@ -99,6 +57,6 @@ export async function POST(req: Request) {
     roundId: entry.roundId,
     weekIndex: entry.weekIndex,
     weight: entry.weight,
-    date: ymd(entry.date),
+    date: formatYmd(entry.date),
   });
 }

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  MAX_NAME_LENGTH,
+  requiredName,
+  requiredString,
+} from "@/lib/validation";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -51,16 +56,24 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const personId = (body?.personId as string | undefined)?.trim();
-  const trackerTypeId = (body?.trackerTypeId as string | undefined)?.trim();
-  const nameInput = (body?.name as string | undefined)?.trim();
+  const personIdResult = requiredString(body?.personId, "personId");
+  const trackerTypeIdResult = requiredString(body?.trackerTypeId, "trackerTypeId");
+  const nameResult =
+    body?.name === undefined || body?.name === null || body?.name === ""
+      ? null
+      : requiredName(body.name, "name");
 
-  if (!personId || !trackerTypeId) {
-    return NextResponse.json(
-      { error: "personId and trackerTypeId are required" },
-      { status: 400 }
-    );
+  if ("error" in personIdResult) {
+    return NextResponse.json({ error: personIdResult.error }, { status: 400 });
   }
+  if ("error" in trackerTypeIdResult) {
+    return NextResponse.json({ error: trackerTypeIdResult.error }, { status: 400 });
+  }
+  if (nameResult && "error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
+  }
+  const personId = personIdResult.value;
+  const trackerTypeId = trackerTypeIdResult.value;
 
   const [person, trackerType] = await Promise.all([
     prisma.person.findUnique({ where: { id: personId }, select: { id: true } }),
@@ -81,9 +94,9 @@ export async function POST(req: Request) {
     where: { personId, trackerTypeId },
   });
 
-  const defaultName =
-    sameTypeCount === 0 ? trackerType.name : `${trackerType.name} ${sameTypeCount + 1}`;
-  const name = nameInput || defaultName;
+  const suffix = sameTypeCount === 0 ? "" : ` ${sameTypeCount + 1}`;
+  const defaultName = `${trackerType.name.slice(0, MAX_NAME_LENGTH - suffix.length)}${suffix}`;
+  const name = nameResult?.value ?? defaultName;
 
   const tracker = await prisma.tracker.create({
     data: {

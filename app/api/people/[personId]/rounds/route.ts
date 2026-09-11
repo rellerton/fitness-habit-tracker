@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatYmd } from "@/lib/dates";
 
 type RoundCategoryRow = {
   categoryId: string;
@@ -50,13 +51,6 @@ type RoundHistoryItem = {
   entries: { categoryId: string; date: string; status: string }[]; // date = YYYY-MM-DD
   weightEntries: { weekIndex: number; weight: number; date: string }[];
 };
-
-function ymd(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 export async function GET(
   req: Request,
@@ -117,7 +111,7 @@ export async function GET(
 
   const roundsBase = roundsRaw.map((r: RoundRaw) => ({
     id: r.id,
-    startDate: ymd(r.startDate),
+    startDate: formatYmd(r.startDate),
     lengthWeeks: r.lengthWeeks,
     goalWeight: r.goalWeight ?? null,
     createdAt: r.createdAt.toISOString(),
@@ -137,13 +131,13 @@ export async function GET(
     })),
     entries: r.entries.map((e: EntryRow) => ({
       categoryId: e.categoryId,
-      date: ymd(e.date),
+      date: formatYmd(e.date),
       status: e.status,
     })),
     weightEntries: r.weightEntries.map((w: WeightRow) => ({
       weekIndex: w.weekIndex,
       weight: w.weight,
-      date: ymd(w.date),
+      date: formatYmd(w.date),
     })),
   }));
 

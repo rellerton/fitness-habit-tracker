@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requiredName } from "@/lib/validation";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -49,11 +50,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const name = (body?.name as string | undefined)?.trim();
-
-  if (!name) {
-    return NextResponse.json({ error: "name required" }, { status: 400 });
+  const nameResult = requiredName(body?.name, "name");
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
   }
+  const name = nameResult.value;
 
   const existing = await prisma.trackerType.findUnique({
     where: { name },

@@ -1,31 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-
-function parseLocalYmdToDate(ymd: string) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-  if (!m) return null;
-
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-
-  const d = new Date(year, month - 1, day, 0, 0, 0, 0);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
-}
+import { parseLocalYmd } from "@/lib/dates";
+import { positiveNumber, requiredString } from "@/lib/validation";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const personId = body?.personId as string | undefined;
-  const trackerIdInput = body?.trackerId as string | undefined;
-  const startDateStr = body?.startDate as string | undefined;
+  const personIdResult = requiredString(body?.personId, "personId");
+  const trackerIdResult =
+    body?.trackerId === undefined || body?.trackerId === null || body?.trackerId === ""
+      ? null
+      : requiredString(body.trackerId, "trackerId");
+  const startDateStr = body?.startDate;
   const lengthWeeksInput = body?.lengthWeeks as number | string | undefined;
   const goalWeightInput = body?.goalWeight as number | string | undefined;
 
-  if (!personId) {
-    return NextResponse.json({ error: "personId required" }, { status: 400 });
+  if ("error" in personIdResult) {
+    return NextResponse.json({ error: personIdResult.error }, { status: 400 });
   }
+  if (trackerIdResult && "error" in trackerIdResult) {
+    return NextResponse.json({ error: trackerIdResult.error }, { status: 400 });
+  }
+  const personId = personIdResult.value;
+  const trackerIdInput = trackerIdResult?.value;
 
   const tracker = trackerIdInput
     ? await prisma.tracker.findUnique({
@@ -58,8 +55,8 @@ export async function POST(req: Request) {
   }
 
   let startDate: Date;
-  if (startDateStr) {
-    const parsed = parseLocalYmdToDate(startDateStr);
+  if (startDateStr !== undefined && startDateStr !== null && startDateStr !== "") {
+    const parsed = parseLocalYmd(startDateStr);
     if (!parsed) {
       return NextResponse.json(
         { error: "Invalid startDate (expected YYYY-MM-DD)" },
@@ -93,15 +90,11 @@ export async function POST(req: Request) {
 
   let goalWeight: number | undefined;
   if (goalWeightInput !== undefined && goalWeightInput !== null && goalWeightInput !== "") {
-    const parsed =
-      typeof goalWeightInput === "string" ? Number(goalWeightInput) : goalWeightInput;
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return NextResponse.json(
-        { error: "goalWeight must be a number > 0" },
-        { status: 400 }
-      );
+    const parsed = positiveNumber(goalWeightInput, "goalWeight");
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    goalWeight = parsed;
+    goalWeight = parsed.value;
   }
 
   const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {

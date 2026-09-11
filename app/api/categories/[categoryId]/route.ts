@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requiredName } from "@/lib/validation";
 
 function parseApplyToExisting(value: unknown) {
   if (value === true) return true;
@@ -98,7 +99,7 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null);
-  const name = (body?.name as string | undefined)?.trim();
+  const nameResult = requiredName(body?.name, "name");
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
   const allowTreatParsed = parseOptionalBoolean(body?.allowTreat);
   const allowSickParsed = parseOptionalBoolean(body?.allowSick);
@@ -107,14 +108,15 @@ export async function PATCH(
   let allowTreat: boolean | undefined;
   let allowSick: boolean | undefined;
 
-  if (!name) {
-    return NextResponse.json({ error: "name required" }, { status: 400 });
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
   }
+  const name = nameResult.value;
 
   if (allowDaysOffInput !== undefined) {
     const parsed =
       typeof allowDaysOffInput === "string" ? Number(allowDaysOffInput) : allowDaysOffInput;
-    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 5) {
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 5) {
       return NextResponse.json(
         { error: "allowDaysOffPerWeek must be 0-5." },
         { status: 400 }

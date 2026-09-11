@@ -53,6 +53,7 @@ test(
     const unique = Date.now();
     let personId = null;
     let trackerTypeId = null;
+    let unrelatedTrackerTypeId = null;
 
     try {
       const createPerson = await apiRequest("/api/people", {
@@ -62,6 +63,12 @@ test(
       assert.equal(createPerson.status, 201, "create person should return 201");
       assert.ok(createPerson.data?.id, "create person should return id");
       personId = createPerson.data.id;
+
+      const tooLongPerson = await apiRequest("/api/people", {
+        method: "POST",
+        body: { name: "x".repeat(101) },
+      });
+      assert.equal(tooLongPerson.status, 400, "overlong names should be rejected");
 
       const getTrackersInitial = await apiRequest(
         `/api/trackers?personId=${encodeURIComponent(personId)}`
@@ -94,6 +101,35 @@ test(
       const categoryId = createCategory.data?.id;
       assert.ok(categoryId, "create category should return id");
 
+      const fractionalDaysOff = await apiRequest(
+        `/api/categories/${encodeURIComponent(categoryId)}`,
+        {
+          method: "PATCH",
+          body: {
+            name: `Smoke Category ${unique}`,
+            allowDaysOffPerWeek: 1.5,
+          },
+        }
+      );
+      assert.equal(fractionalDaysOff.status, 400, "days off should require an integer");
+
+      const createUnrelatedType = await apiRequest("/api/tracker-types", {
+        method: "POST",
+        body: { name: `Unrelated Tracker Type ${unique}` },
+      });
+      assert.equal(createUnrelatedType.status, 201);
+      unrelatedTrackerTypeId = createUnrelatedType.data.id;
+
+      const createUnrelatedCategory = await apiRequest("/api/categories", {
+        method: "POST",
+        body: {
+          trackerTypeId: unrelatedTrackerTypeId,
+          name: `Unrelated Category ${unique}`,
+        },
+      });
+      assert.equal(createUnrelatedCategory.status, 201);
+      const unrelatedCategoryId = createUnrelatedCategory.data.id;
+
       const createTracker = await apiRequest("/api/trackers", {
         method: "POST",
         body: { personId, trackerTypeId },
@@ -107,13 +143,57 @@ test(
         body: {
           personId,
           trackerId,
-          startDate: "2026-01-05",
+          startDate: "2026-03-02",
           lengthWeeks: 4,
         },
       });
       assert.equal(startRound.status, 201, "start round should return 201");
       const roundId = startRound.data.id;
       assert.ok(roundId);
+
+      const invalidCalendarDate = await apiRequest("/api/entries", {
+        method: "POST",
+        body: {
+          roundId,
+          categoryId,
+          date: "2026-02-30",
+          mode: "cycle",
+        },
+      });
+      assert.equal(invalidCalendarDate.status, 400, "impossible dates should be rejected");
+
+      const outsideRound = await apiRequest("/api/entries", {
+        method: "POST",
+        body: {
+          roundId,
+          categoryId,
+          date: "2026-03-30",
+          mode: "cycle",
+        },
+      });
+      assert.equal(outsideRound.status, 400, "entry dates outside the round should fail");
+
+      const unrelatedCategory = await apiRequest("/api/entries", {
+        method: "POST",
+        body: {
+          roundId,
+          categoryId: unrelatedCategoryId,
+          date: "2026-03-08",
+          mode: "cycle",
+        },
+      });
+      assert.equal(unrelatedCategory.status, 400, "round/category ownership should be enforced");
+
+      const invalidMode = await apiRequest("/api/entries", {
+        method: "POST",
+        body: {
+          roundId,
+          categoryId,
+          date: "2026-03-08",
+          mode: "overwrite",
+        },
+      });
+      assert.equal(invalidMode.status, 400, "unknown entry modes should be rejected");
 
       const cycleStatuses = [];
       for (let i = 0; i < 5; i += 1) {
@@ -122,7 +202,7 @@ test(
           body: {
             roundId,
             categoryId,
-            date: "2026-01-05",
+            date: "2026-03-08",
             mode: "cycle",
           },
         });
@@ -135,12 +215,48 @@ test(
         "cycle should skip Treat/Sick when disabled for category"
       );
 
+      const invalidWeightDate = await apiRequest("/api/weights", {
+        method: "POST",
+        body: { roundId, date: "2026-03-02-extra", weight: 180 },
+      });
+      assert.equal(invalidWeightDate.status, 400, "weight dates must be exact YYYY-MM-DD");
+
+      const excessiveWeight = await apiRequest("/api/weights", {
+        method: "POST",
+        body: { roundId, date: "2026-03-08", weight: 2001 },
+      });
+      assert.equal(excessiveWeight.status, 400, "weight should have an upper bound");
+
+      const createWeight = await apiRequest("/api/weights", {
+        method: "POST",
+        body: { roundId, date: "2026-03-08", weight: 180 },
+      });
+      assert.equal(createWeight.status, 200, "valid weight should be stored");
+
+      const invalidRoundDate = await apiRequest(`/api/rounds/${encodeURIComponent(roundId)}`, {
+        method: "PATCH",
+        body: { startDate: "2026-02-30" },
+      });
+      assert.equal(invalidRoundDate.status, 400, "round edits should reject impossible dates");
+
+      const shiftRound = await apiRequest(`/api/rounds/${encodeURIComponent(roundId)}`, {
+        method: "PATCH",
+        body: { startDate: "2026-03-09" },
+      });
+      assert.equal(shiftRound.status, 200, "round start date should update");
+      assert.equal(shiftRound.data?.shiftedDays, 7);
+      assert.equal(shiftRound.data?.shiftedEntries, 1);
+      assert.equal(shiftRound.data?.shiftedWeightEntries, 1);
+
       const latestRound = await apiRequest(
         `/api/people/${encodeURIComponent(personId)}/latest-round?trackerId=${encodeURIComponent(trackerId)}`
       );
       assert.equal(latestRound.status, 200, "latest round should return 200");
       assert.equal(latestRound.data?.round?.id, roundId, "latest round id should match started round");
       assert.equal(latestRound.data?.roundNumber, 1, "first round for tracker type should be round 1");
+      assert.equal(latestRound.data?.round?.startDate, "2026-03-09");
+      assert.equal(latestRound.data?.round?.entries?.[0]?.date, "2026-03-15");
+      assert.equal(latestRound.data?.round?.weightEntries?.[0]?.date, "2026-03-15");
 
       const deleteRound = await apiRequest(`/api/rounds/${encodeURIComponent(roundId)}`, {
         method: "DELETE",
@@ -169,6 +285,12 @@ test(
       }
       if (trackerTypeId) {
         await apiRequest(`/api/tracker-types/${encodeURIComponent(trackerTypeId)}`, {
+          method: "DELETE",
+          body: {},
+        }).catch(() => null);
+      }
+      if (unrelatedTrackerTypeId) {
+        await apiRequest(`/api/tracker-types/${encodeURIComponent(unrelatedTrackerTypeId)}`, {
           method: "DELETE",
           body: {},
         }).catch(() => null);

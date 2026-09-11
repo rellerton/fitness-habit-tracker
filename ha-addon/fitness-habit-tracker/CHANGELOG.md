@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Dependencies: update Next.js and its build-time dependency tree to patched releases.
+- Data integrity: shift weekly weight dates together with daily entries when a round start date changes.
+- API: enforce round/category ownership, round date bounds, strict calendar dates, explicit entry modes, bounded weights and names, and integer days-off settings.
+- Testing: expand the API smoke suite with invalid-input and DST-crossing round-shift regressions, and run it in normal CI.
 - Security: stop returning the resolved Home Assistant ingress path in a response header.
 - Add-on: add Supervisor documentation and icon metadata assets.
 - Add-on: publish both amd64 and aarch64 container images.

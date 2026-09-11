@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requiredName } from "@/lib/validation";
 
 export async function GET(
   _req: Request,
@@ -43,11 +44,11 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null);
-  const name = (body?.name as string | undefined)?.trim();
-
-  if (!name) {
-    return NextResponse.json({ error: "Name required" }, { status: 400 });
+  const nameResult = requiredName(body?.name, "name");
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
   }
+  const name = nameResult.value;
 
   const exists = await prisma.person.findUnique({
     where: { id: personId },

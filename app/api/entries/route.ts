@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { differenceInCalendarDays, parseLocalYmd } from "@/lib/dates";
+import { requiredString } from "@/lib/validation";
 
 const baseCycle = ["EMPTY", "HALF", "DONE", "OFF"] as const;
 const optionalStatuses = ["TREAT", "SICK"] as const;
@@ -21,37 +23,66 @@ function cycleForCategory(allowTreat: boolean, allowSick: boolean): EntryStatus[
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
 
-  const roundId = body?.roundId as string | undefined;
-  const categoryId = body?.categoryId as string | undefined;
-  const dateStr = body?.date as string | undefined;
+  const roundIdResult = requiredString(body?.roundId, "roundId");
+  const categoryIdResult = requiredString(body?.categoryId, "categoryId");
+  const dateStr = body?.date;
   const mode = body?.mode as "cycle" | "set" | undefined;
   const status = body?.status as EntryStatus | undefined;
 
-  if (!roundId || !categoryId || !dateStr) {
+  if ("error" in roundIdResult) {
+    return NextResponse.json({ error: roundIdResult.error }, { status: 400 });
+  }
+  if ("error" in categoryIdResult) {
+    return NextResponse.json({ error: categoryIdResult.error }, { status: 400 });
+  }
+  const roundId = roundIdResult.value;
+  const categoryId = categoryIdResult.value;
+
+  const date = parseLocalYmd(dateStr);
+  if (!date) {
     return NextResponse.json(
-      { error: "roundId, categoryId, date required" },
+      { error: "date must be a valid calendar date in YYYY-MM-DD format" },
       { status: 400 }
     );
   }
 
-  const date = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+  if (mode !== undefined && mode !== "cycle" && mode !== "set") {
+    return NextResponse.json({ error: "mode must be cycle or set" }, { status: 400 });
+  }
+
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    select: {
+      startDate: true,
+      lengthWeeks: true,
+      roundCategories: {
+        where: { categoryId },
+        select: {
+          category: { select: { allowTreat: true, allowSick: true } },
+        },
+      },
+    },
+  });
+  if (!round) {
+    return NextResponse.json({ error: "Round not found" }, { status: 404 });
+  }
+  if (round.roundCategories.length === 0) {
+    return NextResponse.json(
+      { error: "Category is not part of this round" },
+      { status: 400 }
+    );
+  }
+
+  const offset = differenceInCalendarDays(date, round.startDate);
+  if (offset < 0 || offset >= round.lengthWeeks * 7) {
+    return NextResponse.json({ error: "Date is outside this round" }, { status: 400 });
   }
 
   const existing = await prisma.entry.findUnique({
     where: { roundId_categoryId_date: { roundId, categoryId, date } },
-    // (optional) select only what we need; sometimes helps TS inference
     select: { status: true },
   });
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-    select: { id: true, allowTreat: true, allowSick: true },
-  });
-  if (!category) {
-    return NextResponse.json({ error: "Category not found" }, { status: 404 });
-  }
-
+  const category = round.roundCategories[0].category;
   const cycle = cycleForCategory(category.allowTreat, category.allowSick);
 
   let nextStatus: EntryStatus;

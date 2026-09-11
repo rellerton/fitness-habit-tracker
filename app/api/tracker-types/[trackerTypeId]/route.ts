@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requiredName } from "@/lib/validation";
 
 function parseBooleanFlag(value: unknown) {
   if (value === true || value === "true" || value === 1 || value === "1") return true;
@@ -17,10 +18,11 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null);
-  const name = (body?.name as string | undefined)?.trim();
-  if (!name) {
-    return NextResponse.json({ error: "name required" }, { status: 400 });
+  const nameResult = requiredName(body?.name, "name");
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
   }
+  const name = nameResult.value;
 
   const exists = await prisma.trackerType.findUnique({
     where: { id: trackerTypeId },

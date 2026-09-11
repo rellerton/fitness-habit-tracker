@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requiredName, requiredString } from "@/lib/validation";
 
 const MAX_ACTIVE_CATEGORIES = 5;
 
@@ -69,13 +70,17 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const name = (body?.name as string | undefined)?.trim();
-  const trackerTypeId = (body?.trackerTypeId as string | undefined)?.trim();
+  const nameResult = requiredName(body?.name, "name");
+  const trackerTypeIdResult = requiredString(body?.trackerTypeId, "trackerTypeId");
 
-  if (!trackerTypeId) {
-    return NextResponse.json({ error: "trackerTypeId required" }, { status: 400 });
+  if ("error" in trackerTypeIdResult) {
+    return NextResponse.json({ error: trackerTypeIdResult.error }, { status: 400 });
   }
-  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+  if ("error" in nameResult) {
+    return NextResponse.json({ error: nameResult.error }, { status: 400 });
+  }
+  const trackerTypeId = trackerTypeIdResult.value;
+  const name = nameResult.value;
 
   const allowDaysOffInput = body?.allowDaysOffPerWeek as number | string | undefined;
   const allowTreatParsed = parseOptionalBoolean(body?.allowTreat);
@@ -86,7 +91,7 @@ export async function POST(req: Request) {
   if (allowDaysOffInput !== undefined) {
     const parsed =
       typeof allowDaysOffInput === "string" ? Number(allowDaysOffInput) : allowDaysOffInput;
-    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 5) {
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 5) {
       return NextResponse.json(
         { error: "allowDaysOffPerWeek must be 0-5." },
         { status: 400 }

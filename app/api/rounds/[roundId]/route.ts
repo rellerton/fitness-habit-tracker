@@ -1,28 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-
-function ymd(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function parseLocalDay(s: string) {
-  const ymdStr = String(s).slice(0, 10);
-  const d = new Date(`${ymdStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) {
-    throw new Error(`Invalid date string: ${s}`);
-  }
-  return d;
-}
-
-function addDays(d: Date, deltaDays: number) {
-  const next = new Date(d);
-  next.setDate(next.getDate() + deltaDays);
-  return next;
-}
+import {
+  addLocalDays,
+  differenceInCalendarDays,
+  formatYmd,
+  parseLocalYmd,
+} from "@/lib/dates";
+import { positiveNumber } from "@/lib/validation";
 
 export async function GET(
   _: Request,
@@ -54,7 +39,7 @@ export async function GET(
 
 const normalized = {
   ...round,
-  startDate: ymd(round.startDate),
+  startDate: formatYmd(round.startDate),
   roundCategories: round.roundCategories.map((c) => ({
     categoryId: c.categoryId,
     displayName: c.displayName,
@@ -64,7 +49,7 @@ const normalized = {
   })),
   entries: round.entries.map((e) => ({
     ...e,
-    date: ymd(e.date),
+    date: formatYmd(e.date),
   })),
 };
 
@@ -129,11 +114,10 @@ export async function PATCH(
     if (typeof startDateInput !== "string") {
       return NextResponse.json({ error: "startDate must be a string" }, { status: 400 });
     }
-    try {
-      nextStart = parseLocalDay(startDateInput);
-    } catch (error) {
+    nextStart = parseLocalYmd(startDateInput);
+    if (!nextStart) {
       return NextResponse.json(
-        { error: (error as Error).message ?? "Invalid startDate" },
+        { error: "startDate must be a valid calendar date in YYYY-MM-DD format" },
         { status: 400 }
       );
     }
@@ -141,35 +125,26 @@ export async function PATCH(
 
   let goalWeight: number | null | undefined;
   if (goalWeightInput !== undefined && goalWeightInput !== null && goalWeightInput !== "") {
-    const parsed =
-      typeof goalWeightInput === "string" ? Number(goalWeightInput) : goalWeightInput;
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return NextResponse.json(
-        { error: "goalWeight must be a number > 0" },
-        { status: 400 }
-      );
+    const parsed = positiveNumber(goalWeightInput, "goalWeight");
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    goalWeight = parsed;
+    goalWeight = parsed.value;
   } else if (goalWeightInput === null || goalWeightInput === "") {
     goalWeight = null;
   }
 
   const round = await prisma.round.findUnique({
     where: { id: roundId },
-    include: { entries: true },
+    include: { entries: true, weightEntries: true },
   });
 
   if (!round) {
     return NextResponse.json({ error: "Round not found" }, { status: 404 });
   }
 
-  const currentStart = parseLocalDay(ymd(round.startDate));
   const deltaDays =
-    nextStart === null
-      ? 0
-      : Math.round(
-          (nextStart.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000)
-        );
+    nextStart === null ? 0 : differenceInCalendarDays(nextStart, round.startDate);
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.round.update({
@@ -180,7 +155,7 @@ export async function PATCH(
       },
     });
 
-    if (deltaDays === 0 || round.entries.length === 0) return;
+    if (deltaDays === 0) return;
 
     const entriesByCategory = new Map<string, typeof round.entries>();
     for (const entry of round.entries) {
@@ -193,20 +168,29 @@ export async function PATCH(
     for (const list of entriesByCategory.values()) {
       list.sort((a, b) => sortDir * (a.date.getTime() - b.date.getTime()));
       for (const entry of list) {
-        const shifted = addDays(entry.date, deltaDays);
+        const shifted = addLocalDays(entry.date, deltaDays);
         await tx.entry.update({
           where: { id: entry.id },
           data: { date: shifted },
         });
       }
     }
+
+    for (const weightEntry of round.weightEntries) {
+      await tx.weightEntry.update({
+        where: { id: weightEntry.id },
+        data: { date: addLocalDays(weightEntry.date, deltaDays) },
+      });
+    }
   });
 
   return NextResponse.json(
     {
       ok: true,
-      startDate: nextStart ? ymd(nextStart) : ymd(round.startDate),
+      startDate: nextStart ? formatYmd(nextStart) : formatYmd(round.startDate),
       shiftedDays: deltaDays,
+      shiftedEntries: deltaDays === 0 ? 0 : round.entries.length,
+      shiftedWeightEntries: deltaDays === 0 ? 0 : round.weightEntries.length,
     },
     { status: 200 }
   );

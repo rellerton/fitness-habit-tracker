@@ -45,3 +45,15 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Initialize smoke-test database
+        run: |
+          mkdir -p data
+          npx prisma migrate deploy
+
+      - name: API smoke tests
+        run: |
+          npm run start > /tmp/fitness-habit-tracker.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          npm run test:smoke
