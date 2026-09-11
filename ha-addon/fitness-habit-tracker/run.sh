@@ -23,12 +23,8 @@ fi
 export DATABASE_URL="${DB_URL}"
 
 echo "==> NODE_ENV=${NODE_ENV}"
-echo "==> DATABASE_URL=${DATABASE_URL}"
 
 mkdir -p /data
-
-echo "==> prisma generate"
-npx prisma generate
 
 echo "==> prisma migrate deploy"
 npx prisma migrate deploy
@@ -45,8 +41,6 @@ if [[ ! -f "${NGINX_CONF}" ]]; then
 fi
 
 echo "==> nginx -t"
-echo "==> dumping nginx conf"
-nl -ba /etc/nginx/http.d/default.conf | sed -n '1,200p'
 nginx -t
 
 echo "==> starting Next.js on :3001"

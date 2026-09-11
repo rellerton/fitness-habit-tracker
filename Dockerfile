@@ -16,9 +16,8 @@ RUN apk add --no-cache openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Ensure prisma client + next build
+# Generate the Prisma client as part of the application build.
 ENV NEXT_PUBLIC_ASSET_PREFIX=.
-RUN npx prisma generate
 RUN npm run build
 
 # ---- run ----
@@ -37,7 +36,8 @@ COPY --from=build /app/prisma ./prisma
 
 # entrypoint
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh \
+    && chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 3000
 

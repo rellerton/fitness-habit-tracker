@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Dependencies: update Next.js and its build-time dependency tree to patched releases.
+- Security: stop returning the resolved Home Assistant ingress path in a response header.
+- Add-on: add Supervisor documentation and icon metadata assets.
+- Add-on: publish both amd64 and aarch64 container images.
+- Startup: remove redundant Prisma client generation and sensitive configuration logging.
+- Containers: normalize shell script line endings so images built from Windows checkouts start on Linux.
+- Nginx: remove the duplicate `text/html` MIME declaration that caused a startup warning.
+- Backups: request cold backups so SQLite is quiesced before Supervisor snapshots `/data`.
+
 ## v3.2.2
 
 - Weights: fixed week assignment when saving entries across daylight saving time boundaries, preventing later-week edits from being stored against the prior week.

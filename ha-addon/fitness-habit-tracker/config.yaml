@@ -7,9 +7,11 @@ logo: "logo.png"
 
 arch:
   - amd64
+  - aarch64
 
 startup: services
 boot: auto
+backup: cold
 
 # IMPORTANT: pull the HA-specific image we will publish
 image: "ghcr.io/rellerton/fitness-habit-tracker-ha"

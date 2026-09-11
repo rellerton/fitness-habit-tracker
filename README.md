@@ -61,6 +61,8 @@ http://<host>/people/<personId>?controls=0
 
 - Docker install guide: [`docs/docker-install.md`](docs/docker-install.md)
 - Development runbook (DB backup/switching + API smoke tests): [`docs/development.md`](docs/development.md)
+- Home Assistant app distribution and future HACS companion:
+  [`docs/home-assistant-distribution.md`](docs/home-assistant-distribution.md)
 
 ## Tech stack
 
