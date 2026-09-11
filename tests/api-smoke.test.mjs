@@ -54,6 +54,7 @@ test(
     let personId = null;
     let trackerTypeId = null;
     let unrelatedTrackerTypeId = null;
+    let fallRoundId = null;
 
     try {
       const createPerson = await apiRequest("/api/people", {
@@ -258,6 +259,63 @@ test(
       assert.equal(latestRound.data?.round?.entries?.[0]?.date, "2026-03-15");
       assert.equal(latestRound.data?.round?.weightEntries?.[0]?.date, "2026-03-15");
 
+      const startFallRound = await apiRequest("/api/rounds/start", {
+        method: "POST",
+        body: {
+          personId,
+          trackerId,
+          startDate: "2026-10-26",
+          lengthWeeks: 4,
+        },
+      });
+      assert.equal(startFallRound.status, 201);
+      fallRoundId = startFallRound.data.id;
+
+      const fallEntry = await apiRequest("/api/entries", {
+        method: "POST",
+        body: {
+          roundId: fallRoundId,
+          categoryId,
+          date: "2026-11-01",
+          mode: "cycle",
+        },
+      });
+      assert.equal(fallEntry.status, 200);
+
+      const fallWeight = await apiRequest("/api/weights", {
+        method: "POST",
+        body: { roundId: fallRoundId, date: "2026-11-01", weight: 179 },
+      });
+      assert.equal(fallWeight.status, 200);
+
+      const shiftFallRound = await apiRequest(
+        `/api/rounds/${encodeURIComponent(fallRoundId)}`,
+        {
+          method: "PATCH",
+          body: { startDate: "2026-11-02" },
+        }
+      );
+      assert.equal(shiftFallRound.status, 200);
+      assert.equal(shiftFallRound.data?.shiftedDays, 7);
+      assert.equal(shiftFallRound.data?.shiftedEntries, 1);
+      assert.equal(shiftFallRound.data?.shiftedWeightEntries, 1);
+
+      const latestFallRound = await apiRequest(
+        `/api/people/${encodeURIComponent(personId)}/latest-round?trackerId=${encodeURIComponent(trackerId)}`
+      );
+      assert.equal(latestFallRound.status, 200);
+      assert.equal(latestFallRound.data?.round?.id, fallRoundId);
+      assert.equal(latestFallRound.data?.round?.startDate, "2026-11-02");
+      assert.equal(latestFallRound.data?.round?.entries?.[0]?.date, "2026-11-08");
+      assert.equal(latestFallRound.data?.round?.weightEntries?.[0]?.date, "2026-11-08");
+
+      const deleteFallRound = await apiRequest(
+        `/api/rounds/${encodeURIComponent(fallRoundId)}`,
+        { method: "DELETE" }
+      );
+      assert.equal(deleteFallRound.status, 200);
+      fallRoundId = null;
+
       const deleteRound = await apiRequest(`/api/rounds/${encodeURIComponent(roundId)}`, {
         method: "DELETE",
       });
@@ -278,6 +336,11 @@ test(
       const removedTracker = getTrackersAfter.data.find((t) => t.id === trackerId);
       assert.equal(removedTracker, undefined, "tracker with no rounds should be hard deleted");
     } finally {
+      if (fallRoundId) {
+        await apiRequest(`/api/rounds/${encodeURIComponent(fallRoundId)}`, {
+          method: "DELETE",
+        }).catch(() => null);
+      }
       if (personId) {
         await apiRequest(`/api/people/${encodeURIComponent(personId)}`, {
           method: "DELETE",
