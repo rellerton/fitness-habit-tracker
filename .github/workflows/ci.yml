@@ -102,7 +102,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fitness-habit-tracker:scan
-          version: 0.74.0
+          version: v0.74.0
           scanners: vuln
           ignore-unfixed: true
           severity: HIGH,CRITICAL
@@ -112,7 +112,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fitness-habit-tracker-ha:scan
-          version: 0.74.0
+          version: v0.74.0
           scanners: vuln
           ignore-unfixed: true
           severity: HIGH,CRITICAL
