@@ -1,10 +1,11 @@
 {
   "name": "fitness-habit-tracker",
-  "version": "0.1.0",
+  "version": "3.3.0",
   "private": true,
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "next": "16.3.4",
+    "prisma": "^5.22.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -19,9 +20,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "postcss": "^8.5.28",
-    "prisma": "^5.22.0",
     "tailwindcss": "^4.1.18",
-    "ts-node": "^10.9.2",
     "typescript": "^5"
   },
   "scripts": {
@@ -33,11 +32,12 @@
     "test:ingress": "node --test tests/ingress-proxy.test.mjs",
     "test:database": "node --test tests/database-integrity.test.mjs",
     "test:ui": "playwright test",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
     "db:init": "npx prisma migrate dev --name init && npm run seed",
     "db:deploy": "prisma generate && prisma migrate deploy",
     "start": "next start"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "node prisma/seed.mjs"
   }
 }

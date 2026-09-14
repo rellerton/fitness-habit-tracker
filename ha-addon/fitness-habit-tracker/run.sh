@@ -27,7 +27,7 @@ echo "==> NODE_ENV=${NODE_ENV}"
 mkdir -p /data
 
 echo "==> prisma migrate deploy"
-npx prisma migrate deploy
+node node_modules/prisma/build/index.js migrate deploy
 
 # Sanity check: nginx config must exist where Dockerfile copied it
 NGINX_CONF="/etc/nginx/http.d/default.conf"
@@ -44,7 +44,7 @@ echo "==> nginx -t"
 nginx -t
 
 echo "==> starting Next.js on :3001"
-PORT=3001 npm run start &
+PORT=3001 node node_modules/next/dist/bin/next start &
 NEXT_PID=$!
 
 echo "==> starting nginx on :3000 (ingress)"

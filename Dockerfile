@@ -1,5 +1,5 @@
 # ---- deps ----
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 
 # Prisma needs openssl on alpine
@@ -9,7 +9,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 # ---- build ----
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache openssl
 
@@ -20,16 +20,31 @@ COPY . .
 ENV NEXT_PUBLIC_ASSET_PREFIX=.
 RUN npm run build
 
+# ---- production dependencies ----
+FROM node:24-alpine AS prod-deps
+WORKDIR /app
+RUN apk add --no-cache openssl
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci --omit=dev \
+  && npx prisma generate \
+  && rm -rf /root/.npm
+
 # ---- run ----
-FROM node:20-alpine AS run
+FROM node:24-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
 RUN apk add --no-cache openssl
 
+# Runtime commands invoke Node entry points directly. npm/npx are unnecessary
+# in the final image and would add avoidable packages and vulnerabilities.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 # Copy build output + deps
 COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma

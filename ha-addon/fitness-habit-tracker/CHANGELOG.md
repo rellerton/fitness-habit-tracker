@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v3.3.0
 
 - Dependencies: update Next.js and its build-time dependency tree to patched releases.
 - Data integrity: shift weekly weight dates together with daily entries when a round start date changes.
@@ -19,7 +19,11 @@
 - Reliability: make first-use settings creation safe when simultaneous requests arrive.
 - Accessibility: improve text/button contrast and give administrative selectors accessible names.
 - Testing: add migration upgrade, rollback, concurrency, cold backup/restore, ingress navigation, redirect, asset, process-failure, accessibility, and mobile viewport coverage.
-- Project: add an MIT license, support and security policies, generated-release-note configuration, and draft notes for the next release.
+- Project: add an MIT license, support and security policies, generated-release-note configuration, and full release notes.
+- Automation: add weekly Dependabot updates for npm, GitHub Actions, and Docker dependencies.
+- Security: make production dependency auditing and high/critical container vulnerability scans release-blocking.
+- Runtime: use Node.js 24 with production-only dependencies and remove npm tooling from published runtime images.
+- CI/CD: update JavaScript-based GitHub Actions to their Node.js 24 releases.
 
 ## v3.2.2
 

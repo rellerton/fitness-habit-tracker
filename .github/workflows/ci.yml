@@ -23,16 +23,19 @@ jobs:
       DATABASE_URL: file:./data/ci.db
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
         run: npm ci --include=dev
+
+      - name: Audit production dependencies
+        run: npm run audit:production
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -75,3 +78,42 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           npm run test:ui
+
+  container_security:
+    name: Container security
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build production images
+        run: |
+          docker build --tag fitness-habit-tracker:scan --file Dockerfile .
+          docker build \
+            --tag fitness-habit-tracker-ha:scan \
+            --file ha-addon/fitness-habit-tracker/Dockerfile \
+            --build-arg BUILD_FROM=fitness-habit-tracker:scan \
+            .
+
+      - name: Scan standard image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: fitness-habit-tracker:scan
+          trivy-version: 0.74.0
+          scanners: vuln
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - name: Scan Home Assistant image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: fitness-habit-tracker-ha:scan
+          trivy-version: 0.74.0
+          scanners: vuln
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1

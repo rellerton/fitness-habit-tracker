@@ -51,17 +51,14 @@ export NODE_ENV="${NODE_ENV:-production}"
 echo "==> DATABASE_URL=${DATABASE_URL}"
 echo "==> DATA_DIR=${DATA_DIR}"
 
-echo "==> prisma generate"
-npx prisma generate
-
 echo "==> prisma migrate deploy"
-npx prisma migrate deploy
+node node_modules/prisma/build/index.js migrate deploy
 
 DB_PATH="${DATABASE_URL#file:}"
 if [ ! -f "$DB_PATH" ]; then
   echo "==> No SQLite DB found at $DB_PATH yet. Seeding..."
-  npx prisma db seed || true
+  node prisma/seed.mjs || true
 fi
 
 echo "==> Starting Next.js"
-exec npm run start
+exec node node_modules/next/dist/bin/next start

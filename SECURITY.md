@@ -6,9 +6,9 @@ Security fixes are made on `main` and included in the next tagged release. Once
 a release is published, only the latest release is supported. Older releases
 should be upgraded rather than patched in place.
 
-The current `v3.2.2` release predates the hardening already merged to `main`.
-Until the next release is available, keep the add-on behind Home Assistant
-ingress and do not expose its direct port to untrusted networks.
+The current `v3.3.0` release includes the latest application, dependency, and
+container hardening. Keep the direct port restricted to a trusted private
+network.
 
 ## Reporting a vulnerability
 

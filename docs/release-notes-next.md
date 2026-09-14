@@ -1,7 +1,8 @@
-# Next release notes (draft)
+# v3.3.0 release notes
 
-These notes describe changes merged after `v3.2.2`. They are a draft for the
-next version and do not publish or assign a version number.
+This is the first full GitHub Release for Fitness Habit Tracker. It collects the
+application, add-on, reliability, and project improvements merged after
+`v3.2.2`.
 
 ## Highlights
 
@@ -18,6 +19,10 @@ next version and do not publish or assign a version number.
   validation.
 - Expanded CI with API, ingress, process-supervision, migration, backup/restore,
   concurrency, accessibility, and responsive-browser checks.
+- Added weekly Dependabot updates, a production-only npm audit, high/critical
+  container vulnerability gates, and Node.js 24 GitHub Actions.
+- Reduced published images to production dependencies and removed npm tooling
+  from the runtime layer.
 
 ## Upgrade notes
 
@@ -28,12 +33,15 @@ next version and do not publish or assign a version number.
 - Direct port access remains unauthenticated and should stay restricted to a
   trusted network.
 
-## Release checklist
+## Validation
 
-- [ ] Choose and apply the next semantic version in add-on metadata/changelog.
-- [ ] Verify GitHub Actions on the release commit.
-- [ ] Build and inspect the published amd64/arm64 manifest.
-- [ ] Test install/upgrade and backup/restore in an isolated Supervisor lab.
-- [ ] Test the ARM64 image on real hardware.
-- [ ] Create a GitHub Release using generated notes and this draft.
-- [ ] Coordinate and explicitly approve the production add-on upgrade.
+- Production dependency auditing, lint, type checking, the production build,
+  database integrity, API, ingress, process-supervision, accessibility, and
+  responsive-browser tests are enforced by CI.
+- Standard and Home Assistant images are blocked from release when Trivy finds
+  a fixed high or critical operating-system or application dependency issue.
+- The published images target both amd64 and arm64. Real ARM64 hardware remains
+  a recommended post-release acceptance check.
+
+Production is not upgraded by publishing this release; install it only after a
+separate, explicit production approval.
