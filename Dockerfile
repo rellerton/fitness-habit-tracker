@@ -1,5 +1,5 @@
 # ---- deps ----
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 
 # Prisma needs openssl on alpine
@@ -9,7 +9,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 # ---- build ----
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache openssl
 
@@ -21,7 +21,7 @@ ENV NEXT_PUBLIC_ASSET_PREFIX=.
 RUN npm run build
 
 # ---- production dependencies ----
-FROM node:24-alpine AS prod-deps
+FROM node:26-alpine AS prod-deps
 WORKDIR /app
 RUN apk add --no-cache openssl
 
@@ -32,7 +32,7 @@ RUN npm ci --omit=dev \
   && rm -rf /root/.npm
 
 # ---- run ----
-FROM node:24-alpine AS run
+FROM node:26-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
