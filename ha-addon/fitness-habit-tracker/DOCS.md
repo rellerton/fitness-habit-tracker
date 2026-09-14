@@ -49,5 +49,7 @@ Create a Home Assistant backup before updating. The add-on applies Prisma databa
 - If the readiness endpoint reports an error, verify the configured database URL and available disk space.
 - Health endpoint: `/api/health`
 - Database readiness endpoint: `/api/ready`
+- The container deliberately exits if either Next.js or Nginx stops. Home
+  Assistant's watchdog can then report the failure and restart the add-on.
 
 When reporting a problem, include the add-on version, Home Assistant version, host architecture, and relevant log lines. Remove ingress tokens, URLs containing ingress paths, and other private values before sharing logs.

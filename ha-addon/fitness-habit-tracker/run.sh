@@ -45,6 +45,30 @@ nginx -t
 
 echo "==> starting Next.js on :3001"
 PORT=3001 npm run start &
+NEXT_PID=$!
 
 echo "==> starting nginx on :3000 (ingress)"
-exec nginx -g "daemon off;"
+nginx -g "daemon off;" &
+NGINX_PID=$!
+
+shutdown() {
+  trap - EXIT INT TERM
+  kill -TERM "${NEXT_PID}" "${NGINX_PID}" 2>/dev/null || true
+  wait "${NEXT_PID}" "${NGINX_PID}" 2>/dev/null || true
+}
+
+trap shutdown EXIT INT TERM
+
+set +e
+wait -n "${NEXT_PID}" "${NGINX_PID}"
+EXITED_STATUS=$?
+set -e
+
+if ! kill -0 "${NEXT_PID}" 2>/dev/null; then
+  EXITED_PROCESS="Next.js"
+else
+  EXITED_PROCESS="Nginx"
+fi
+
+echo "!! ${EXITED_PROCESS} exited with status ${EXITED_STATUS}; stopping add-on"
+exit 1

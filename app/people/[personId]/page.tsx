@@ -1055,7 +1055,7 @@ export default function PersonPage() {
               onClick={() => setRoundLengthWeeks(8)}
               className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
                 roundLengthWeeks === 8
-                  ? "bg-sky-500 text-white"
+                  ? "bg-sky-700 text-white"
                   : "bg-white/5 text-slate-100 hover:bg-white/10"
               }`}
             >
@@ -1066,7 +1066,7 @@ export default function PersonPage() {
               onClick={() => setRoundLengthWeeks(4)}
               className={`rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold ${
                 roundLengthWeeks === 4
-                  ? "bg-sky-500 text-white"
+                  ? "bg-sky-700 text-white"
                   : "bg-white/5 text-slate-100 hover:bg-white/10"
               }`}
             >
@@ -1109,7 +1109,7 @@ export default function PersonPage() {
             Cancel
           </button>
           <button
-            className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+            className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-60"
             onClick={confirmStartRound}
             disabled={loading}
           >
@@ -1175,6 +1175,7 @@ export default function PersonPage() {
           <div className="mt-2 flex items-center gap-2">
             {showTrackerSwitcher ? (
               <select
+                aria-label="Active tracker"
                 className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
                 value={selectedTrackerId}
                 onChange={(e) => setSelectedTrackerId(e.target.value)}
@@ -1206,7 +1207,7 @@ export default function PersonPage() {
           <button
             onClick={openNewRoundPrompt}
             disabled={loading || !selectedTrackerId}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Starting..." : "Start New Round"}
           </button>
@@ -1214,6 +1215,7 @@ export default function PersonPage() {
           {showAddTrackerPanel && (
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto]">
               <select
+                aria-label="Tracker type to add"
                 className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
                 value={newTrackerTypeId}
                 onChange={(e) => setNewTrackerTypeId(e.target.value)}
@@ -1304,7 +1306,7 @@ export default function PersonPage() {
           <button
             onClick={openNewRoundPrompt}
             disabled={loading || !selectedTrackerId}
-            className="rounded-xl bg-sky-500 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
             title="Start a new round (creates a fresh one)"
           >
             {loading ? "Starting..." : "New Round"}
@@ -1320,6 +1322,7 @@ export default function PersonPage() {
           <div className="mt-2 flex items-center gap-2">
             {showTrackerSwitcher ? (
               <select
+                aria-label="Active tracker"
                 className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
                 value={selectedTrackerId}
                 onChange={(e) => setSelectedTrackerId(e.target.value)}
@@ -1351,6 +1354,7 @@ export default function PersonPage() {
           {showAddTrackerPanel && (
             <div className="mt-3 grid grid-cols-[1fr,auto] gap-2">
               <select
+                aria-label="Tracker type to add"
                 className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
                 value={newTrackerTypeId}
                 onChange={(e) => setNewTrackerTypeId(e.target.value)}
@@ -1652,8 +1656,13 @@ export default function PersonPage() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !weightSaving && setWeightModalOpen(false)}
           />
-          <div className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur">
-            <h3 className="text-lg font-semibold text-slate-100">
+          <div
+            aria-labelledby="weight-dialog-title"
+            aria-modal="true"
+            className="relative w-[92vw] max-w-lg rounded-2xl border border-white/10 bg-[#111111]/80 p-5 shadow-xl backdrop-blur"
+            role="dialog"
+          >
+            <h3 id="weight-dialog-title" className="text-lg font-semibold text-slate-100">
               Week {weightModalWeekIdx + 1} weight
             </h3>
             {weightWeekRange && (
@@ -1666,8 +1675,9 @@ export default function PersonPage() {
             </p>
 
             <div className="mt-4">
-              <label className="text-sm font-medium text-slate-200">Date</label>
+              <label htmlFor="weight-date" className="text-sm font-medium text-slate-200">Date</label>
               <input
+                id="weight-date"
                 type="date"
                 value={weightModalDateInput}
                 min={weightWeekRange ? yyyyMmDd(weightWeekRange.start) : undefined}
@@ -1679,8 +1689,9 @@ export default function PersonPage() {
             </div>
 
             <div className="mt-4">
-              <label className="text-sm font-medium text-slate-200">Weight</label>
+              <label htmlFor="weight-value" className="text-sm font-medium text-slate-200">Weight</label>
               <input
+                id="weight-value"
                 type="number"
                 inputMode="decimal"
                 step="0.1"
@@ -1701,7 +1712,7 @@ export default function PersonPage() {
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-60"
                 onClick={saveWeight}
                 disabled={weightSaving}
               >
@@ -1758,7 +1769,7 @@ export default function PersonPage() {
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-60"
                 onClick={confirmEditStartDate}
                 disabled={loading}
               >

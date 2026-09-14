@@ -18,11 +18,11 @@ function normalizeWeightUnit(value: unknown) {
 }
 
 async function getOrCreateSettings() {
-  const existing = await prisma.appSettings.findUnique({
+  return prisma.appSettings.upsert({
     where: { id: "singleton" },
+    update: {},
+    create: DEFAULT_SETTINGS,
   });
-  if (existing) return existing;
-  return prisma.appSettings.create({ data: DEFAULT_SETTINGS });
 }
 
 export async function GET() {

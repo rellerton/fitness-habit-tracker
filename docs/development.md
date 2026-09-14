@@ -69,7 +69,7 @@ Restore from a backup (stop add-on, then replace):
 cp /data/dev.backup-YYYYMMDD-HHMMSS.db /data/dev.db
 ```
 
-## API smoke test
+## Automated tests
 
 Run a lightweight end-to-end API check against a running app instance.
 
@@ -94,6 +94,28 @@ The smoke test validates core flows:
 - delete round
 - remove tracker
 
+Additional suites:
+
+```bash
+# Historical migration upgrades, rollback, concurrency, cascades, and backup/restore
+npm run test:database
+
+# Nginx routing, cache headers, redirects, assets, and ingress-path behavior
+SMOKE_BASE_URL=http://127.0.0.1:3000 npm run test:ingress
+
+# Desktop/mobile Chromium accessibility and responsive-layout checks
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:ui
+
+# Build the add-on image and prove Nginx/Next.js failure supervision
+bash scripts/test-addon-runtime.sh
+```
+
+Install the Playwright Chromium runtime once before the UI suite:
+
+```bash
+npx playwright install chromium
+```
+
 ## CI checks on main
 
 The repository includes a CI workflow (`.github/workflows/ci.yml`) for normal development.
@@ -102,6 +124,10 @@ It runs on push/PR to `main`:
 - lint
 - typecheck
 - build
+- migration and database-integrity tests
+- API smoke tests
+- add-on ingress and process-supervision tests
+- desktop/mobile Chromium accessibility checks
 
 ## Health and readiness checks
 

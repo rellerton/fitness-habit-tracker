@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Database integrity and migration tests
+        run: npm run test:database
+
       - name: Initialize smoke-test database
         run: |
           mkdir -p data
@@ -57,3 +60,18 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           npm run test:smoke
+
+      - name: Add-on ingress and process-supervision tests
+        run: bash scripts/test-addon-runtime.sh
+
+      - name: Install Chromium for UI tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Accessibility and responsive UI tests
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+        run: |
+          npm run start > /tmp/fitness-habit-tracker-ui.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          npm run test:ui

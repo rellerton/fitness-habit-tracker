@@ -12,7 +12,14 @@
 - Startup: remove redundant Prisma client generation and sensitive configuration logging.
 - Containers: normalize shell script line endings so images built from Windows checkouts start on Linux.
 - Nginx: remove the duplicate `text/html` MIME declaration that caused a startup warning.
+- Runtime: stop the add-on if either Nginx or Next.js exits so Supervisor can recover it.
+- Caching: limit ingress body rewriting to HTML, disable API caching, require HTML revalidation, and cache hashed Next.js assets as immutable.
+- Ingress: preserve the external ingress prefix on redirects without leaking the add-on's internal origin.
 - Backups: request cold backups so SQLite is quiesced before Supervisor snapshots `/data`.
+- Reliability: make first-use settings creation safe when simultaneous requests arrive.
+- Accessibility: improve text/button contrast and give administrative selectors accessible names.
+- Testing: add migration upgrade, rollback, concurrency, cold backup/restore, ingress navigation, redirect, asset, process-failure, accessibility, and mobile viewport coverage.
+- Project: add an MIT license, support and security policies, generated-release-note configuration, and draft notes for the next release.
 
 ## v3.2.2
 

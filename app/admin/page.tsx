@@ -699,7 +699,7 @@ export default function AdminPage() {
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
               value={personName}
               onChange={(e) => setPersonName(e.target.value)}
               onKeyDown={(e) => {
@@ -711,7 +711,7 @@ export default function AdminPage() {
             <button
               onClick={addPerson}
               disabled={!canAddPerson || busy !== null}
-              className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === "person" ? "Adding..." : "Add"}
             </button>
@@ -780,7 +780,7 @@ export default function AdminPage() {
                                     <div className="min-w-0">
                                       <div className="truncate text-sm text-slate-200">{tracker.name}</div>
                                       {tracker.name.trim().toLowerCase() !== tracker.trackerType.name.trim().toLowerCase() && (
-                                        <div className="truncate text-xs text-slate-500">{tracker.trackerType.name}</div>
+                                        <div className="truncate text-xs text-slate-400">{tracker.trackerType.name}</div>
                                       )}
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -843,7 +843,7 @@ export default function AdminPage() {
                                   </table>
                                 </div>
                               )}
-                              <p className="mt-3 text-xs text-slate-500">
+                              <p className="mt-3 text-xs text-slate-400">
                               Admin can delete any round. Removing a tracker archives it from the person but keeps historical rounds.
                               </p>
                             </section>
@@ -873,7 +873,7 @@ export default function AdminPage() {
           <p className="mt-3 text-xs text-slate-400">Create new tracker type</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-400 focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
               value={trackerTypeName}
               onChange={(e) => setTrackerTypeName(e.target.value)}
               onKeyDown={(e) => {
@@ -893,6 +893,7 @@ export default function AdminPage() {
           <p className="mt-3 text-xs text-slate-400">Configure tracker types</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
+              aria-label="Tracker type to configure"
               className="w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
               value={selectedTrackerTypeId}
               onChange={(e) => setSelectedTrackerTypeId(e.target.value)}
@@ -926,13 +927,13 @@ export default function AdminPage() {
               Delete
             </button>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             Categories below are scoped to: {selectedTrackerType?.name ?? "No tracker type selected"}.
           </p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111111]/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
               onKeyDown={(e) => {
@@ -941,6 +942,7 @@ export default function AdminPage() {
               placeholder="Category (e.g., Cardio)"
             />
             <select
+              aria-label="Days off per week for new category"
               className="rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/10"
               value={catDaysOff}
               onChange={(e) => setCatDaysOff(Number(e.target.value))}
@@ -994,10 +996,10 @@ export default function AdminPage() {
             />
             Apply to latest rounds
           </label>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             Max {MAX_ACTIVE_CATEGORIES} categories. Delete one to add a new category.
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             Days off and Treat/Sick settings are category-level and apply across trackers/rounds for this tracker type.
           </p>
 
@@ -1007,11 +1009,11 @@ export default function AdminPage() {
                 <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="font-medium text-slate-100 truncate">{c.name}</div>
-                    <div className="text-xs text-slate-500">Sort: {c.sortOrder}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">Sort: {c.sortOrder}</div>
+                    <div className="text-xs text-slate-400">
                       Days off/week: {c.allowDaysOffPerWeek}
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">
                       Treat: {c.allowTreat ? "On" : "Off"} • Sick: {c.allowSick ? "On" : "Off"}
                     </div>
                   </div>
@@ -1085,6 +1087,7 @@ export default function AdminPage() {
           <div className="w-full sm:max-w-xs">
             <label className="text-sm font-medium text-slate-200">Weight unit</label>
             <select
+              aria-label="Weight unit"
               className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 text-sm outline-none focus:border-sky-400/60 focus:ring-4 focus:ring-sky-400/10"
               value={weightUnit}
               onChange={(e) => setWeightUnit(e.target.value as "LBS" | "KG")}
@@ -1099,7 +1102,7 @@ export default function AdminPage() {
           <button
             onClick={saveSettings}
             disabled={busy !== null}
-            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === "settings" ? "Saving..." : "Save settings"}
           </button>
@@ -1130,7 +1133,7 @@ export default function AdminPage() {
               </button>
 
               <button
-                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+                className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-60"
                 onClick={confirmEditPerson}
                 disabled={busy !== null}
               >
@@ -1302,6 +1305,7 @@ export default function AdminPage() {
             <div className="mt-4">
               <label className="text-sm font-medium text-slate-200">Days off per week</label>
               <select
+                aria-label="Days off per week"
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#111111] text-slate-100 px-3 py-2 outline-none focus:border-emerald-400/60"
                 value={editCatDaysOff}
                 onChange={(e) => setEditCatDaysOff(Number(e.target.value))}

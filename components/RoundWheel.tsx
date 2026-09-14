@@ -530,10 +530,19 @@ export default function RoundWheel({
               </text>
                 {onWeekWeightClick && (
                   <g
+                    aria-label={`Set weight for week ${w + 1}`}
                     className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       onWeekWeightClick(w);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onWeekWeightClick(w);
+                      }
                     }}
                   >
                     <title>Set weight</title>
@@ -541,7 +550,7 @@ export default function RoundWheel({
                     <circle
                       cx={iconPos.x}
                       cy={iconPos.y}
-                      r={14}
+                      r={30}
                       fill="transparent"
                       stroke="none"
                     />

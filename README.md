@@ -63,6 +63,13 @@ http://<host>/people/<personId>?controls=0
 - Development runbook (DB backup/switching + API smoke tests): [`docs/development.md`](docs/development.md)
 - Home Assistant app distribution and future HACS companion:
   [`docs/home-assistant-distribution.md`](docs/home-assistant-distribution.md)
+- Support: [`SUPPORT.md`](SUPPORT.md)
+- Security policy: [`SECURITY.md`](SECURITY.md)
+- Draft next-release notes: [`docs/release-notes-next.md`](docs/release-notes-next.md)
+
+## License
+
+Fitness Habit Tracker is available under the [MIT License](LICENSE).
 
 ## Tech stack
 

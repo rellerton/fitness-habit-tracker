@@ -71,7 +71,7 @@ export default function Home() {
                     className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-100 hover:bg-white/10"
                   >
                     <span className="truncate">{person.name}</span>
-                    <span className="text-xs text-slate-500">{person.id.slice(0, 8)}</span>
+                    <span className="text-xs text-slate-400">{person.id.slice(0, 8)}</span>
                   </Link>
                 </li>
               ))}
@@ -82,7 +82,7 @@ export default function Home() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href={joinIngressPath(ingressPrefix, "/admin")}
-            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400"
+            className="inline-flex items-center justify-center rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600"
           >
             Admin
           </Link>

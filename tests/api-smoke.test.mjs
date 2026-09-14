@@ -7,7 +7,9 @@ async function waitForApiReady() {
   const maxAttempts = 40;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const res = await fetch(`${BASE_URL}/api/people`);
+      const res = await fetch(`${BASE_URL}/api/people`, {
+        signal: AbortSignal.timeout(1000),
+      });
       if (res.ok) return;
     } catch {
       // server not ready yet
