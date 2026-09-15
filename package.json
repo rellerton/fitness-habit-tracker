@@ -1,6 +1,6 @@
 {
   "name": "fitness-habit-tracker",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "private": true,
   "browserslist": [
     "chrome 85"

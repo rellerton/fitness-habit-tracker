@@ -1,4 +1,4 @@
-# Next release notes
+# v3.3.1
 
 ## Family Hub compatibility hotfix
 

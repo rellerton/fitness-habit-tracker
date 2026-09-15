@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.3.1
+
+- Family Hub: restore Nginx rewriting for JavaScript responses so direct nested tracker pages load Next.js runtime assets and hydrate correctly.
+- Compatibility: target the Chromium 85 feature set to avoid newer JavaScript syntax unsupported by the Family Hub browser.
+- Testing: run the complete browser suite through the Home Assistant Nginx wrapper and add regressions for JavaScript asset rewriting and browser syntax compatibility.
+
 ## v3.3.0
 
 - Dependencies: update Next.js and its build-time dependency tree to patched releases.
