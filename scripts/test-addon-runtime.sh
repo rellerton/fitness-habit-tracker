@@ -70,6 +70,7 @@ if [[ -r /proc/sys/kernel/osrelease ]] && grep -qi microsoft /proc/sys/kernel/os
 fi
 npm run test:ingress
 docker exec "${CONTAINER_NAME}" nginx -t
+PLAYWRIGHT_BASE_URL="${SMOKE_BASE_URL}" npm run test:ui
 expect_supervised_exit "Nginx" 'kill $(pidof nginx)'
 
 start_container

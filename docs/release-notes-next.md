@@ -1,4 +1,17 @@
-# v3.3.0 release notes
+# v3.3.1
+
+## Family Hub compatibility hotfix
+
+- Restores Nginx rewriting for JavaScript responses so direct nested tracker
+  pages can resolve Next.js runtime assets and hydrate instead of remaining on
+  `Loading tracker...`.
+- Targets the Chromium 85 feature set used by the previously working build,
+  avoiding a newer class-static-block construct emitted by Next.js 16.3.
+- Runs the full desktop and mobile browser suite through the Home Assistant
+  Nginx wrapper, and adds focused regressions for both JavaScript asset-base
+  rewriting and the Family Hub syntax ceiling.
+
+## v3.3.0
 
 This is the first full GitHub Release for Fitness Habit Tracker. It collects the
 application, add-on, reliability, and project improvements merged after

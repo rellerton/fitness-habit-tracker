@@ -35,6 +35,14 @@ function findNextAsset(html) {
   return match[1].replace(/^\./, "");
 }
 
+function findNextScripts(html) {
+  const matches = [
+    ...html.matchAll(/<script[^>]+src="(\.?\/_next\/static\/[^"?#]+\.js)[^"]*"/g),
+  ];
+  assert.ok(matches.length > 0, "HTML should reference hashed Next.js JavaScript chunks");
+  return [...new Set(matches.map((match) => match[1].replace(/^\./, "")))];
+}
+
 test("direct responses use root assets and targeted cache headers", async () => {
   const page = await request("/");
   assert.equal(page.status, 200);
@@ -50,6 +58,17 @@ test("direct responses use root assets and targeted cache headers", async () => 
   assert.equal(
     asset.headers.get("cache-control"),
     "public, max-age=31536000, immutable"
+  );
+
+  const scriptResponses = await Promise.all(
+    findNextScripts(html).map((scriptPath) => request(scriptPath))
+  );
+  assert.ok(scriptResponses.every((script) => script.status === 200));
+  const scripts = (await Promise.all(scriptResponses.map((script) => script.text()))).join("\n");
+  assert.doesNotMatch(
+    scripts,
+    /["']\.\/_next\//,
+    "direct JavaScript must not retain the relative asset base used by ingress"
   );
 });
 

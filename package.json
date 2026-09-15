@@ -1,7 +1,10 @@
 {
   "name": "fitness-habit-tracker",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "private": true,
+  "browserslist": [
+    "chrome 85"
+  ],
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "next": "16.3.4",
@@ -31,6 +34,7 @@
     "test:smoke": "node --test tests/api-smoke.test.mjs",
     "test:ingress": "node --test tests/ingress-proxy.test.mjs",
     "test:database": "node --test tests/database-integrity.test.mjs",
+    "test:browser-compat": "node --test tests/browser-compat.test.mjs",
     "test:ui": "playwright test",
     "audit:production": "npm audit --omit=dev --audit-level=high",
     "db:init": "npx prisma migrate dev --name init && npm run seed",
