@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.3.2
+
+- Dependencies: update Next.js, React, React DOM, Tailwind CSS tooling, Autoprefixer, and related minor/patch packages.
+- Development: update Node.js type definitions to 26.5.1 without changing the Node.js 24 LTS application runtime.
+- Security: retain a clean production dependency audit and passing high/critical container vulnerability scans.
+
 ## v3.3.1
 
 - Family Hub: restore Nginx rewriting for JavaScript responses so direct nested tracker pages load Next.js runtime assets and hydrate correctly.
