@@ -1,4 +1,21 @@
-# v3.3.1
+# v3.3.2
+
+## Dependency maintenance
+
+- Updates Next.js from 16.3.4 to 16.3.5 and React/React DOM from 19.2.3 to
+  19.3.0.
+- Updates Tailwind CSS PostCSS tooling, Autoprefixer, and related type and
+  transitive packages to current compatible minor or patch releases.
+- Updates development-only Node.js type definitions to 26.5.1. The application
+  containers continue to run on Node.js 24 LTS.
+- Keeps the production dependency audit clean and passes the complete build,
+  database, API, ingress, Family Hub compatibility, browser, supervision, and
+  container-security test suites.
+
+No database migration or configuration change is introduced. Production is not
+upgraded by publishing this release; install it only after separate approval.
+
+## v3.3.1
 
 ## Family Hub compatibility hotfix
 
